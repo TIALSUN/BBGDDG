@@ -47,6 +47,7 @@ export interface Passage {
 }
 
 export interface AskResult {
+  usage?: import('./ai-settings.js').AiUsage
   answer: string
   project: Pick<Project, 'id' | 'title'>
   sources: Array<{ id: string; title: string; pages: number[] }>

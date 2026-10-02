@@ -6,6 +6,7 @@ import multipart from '@fastify/multipart'
 import staticPlugin from '@fastify/static'
 import open from 'open'
 import { randomUUID } from 'node:crypto'
+import { fileURLToPath } from 'node:url'
 import type { PdfpalConfig } from '../core/config.js'
 import { openDatabase } from '../core/database.js'
 import { ProjectService } from '../core/projects.js'
@@ -16,6 +17,9 @@ import { RetrievalService } from '../core/retrieval.js'
 import { listHighlights } from '../core/highlights.js'
 import { ChatService } from '../core/chat.js'
 import { AgentService, type AgentName } from '../core/agents.js'
+import { AiSettingsStore, apiIds, type ApiId } from '../core/ai-settings.js'
+import { ApiAgent } from '../core/ai-api.js'
+import { z } from 'zod'
 import { resolvePdf, excerptFromText } from '../core/pdf.js'
 import { relatedPapers } from '../core/research.js'
 import { PdfpalError } from '../core/types.js'
@@ -24,19 +28,27 @@ type Params = { projectId: string; sourceId: string; id: string }
 const now = () => new Date().toISOString()
 
 export async function buildServer(config: PdfpalConfig) {
-  const app = Fastify({ logger: true, bodyLimit: 30 * 1024 * 1024 })
+  const app = Fastify({ logger: { redact: ['req.headers.authorization', 'req.headers.x-api-key'] }, bodyLimit: 30 * 1024 * 1024 })
   const db = openDatabase(config)
   const projects = new ProjectService(db)
   const sources = new SourceService(db, config)
   const collections = new CollectionService(db)
   const notes = new NoteService(db, config)
   const chat = new ChatService(db, config)
+  const aiSettings = new AiSettingsStore(config)
+  const apiAgent = new ApiAgent(aiSettings)
+  const agentService = new AgentService(config)
   await app.register(cors, { origin: false })
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } })
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url.startsWith('/api/ai/') && request.method !== 'GET' && request.headers.origin && request.headers.origin !== `http://${request.headers.host}`) {
+      return reply.status(403).send({ detail: 'AI 设置只允许从本机 PDFPal 页面修改。' })
+    }
+  })
 
   app.setErrorHandler((error, _request, reply) => {
     const message = error instanceof Error ? error.message : String(error)
-    const known = error instanceof PdfpalError ? error : new PdfpalError('INTERNAL_ERROR', message)
+    const known = error instanceof PdfpalError ? error : error instanceof z.ZodError ? new PdfpalError('INVALID_INPUT', '设置格式不正确，请检查必填字段。', 2) : new PdfpalError('INTERNAL_ERROR', message)
     const status = known.code === 'PDF_FETCH_TIMEOUT' ? 504 : known.exitCode === 3 ? 404 : known.exitCode === 2 || known.exitCode === 4 ? 400 : 500
     reply.status(status).send({ detail: known.message, code: known.code, details: known.details })
   })
@@ -44,7 +56,23 @@ export async function buildServer(config: PdfpalConfig) {
   app.get('/api/health', async () => ({ status: 'ok' }))
   app.get('/api/auth/me', async () => ({ email: 'local@localhost', name: 'Local User', picture: '' }))
   app.post('/api/auth/logout', async () => ({ ok: true }))
-  app.get('/api/agents', async () => ({ default: config.agent, agents: new AgentService(config).list() }))
+  app.get('/api/agents', async () => ({ default: aiSettings.defaultProvider() || config.agent, agents: agentService.list() }))
+  app.get('/api/ai/settings', async () => aiSettings.publicSettings())
+  app.put<{ Params: { id: string } }>('/api/ai/api/:id', async request => aiSettings.saveApi(request.params.id, request.body))
+  app.put<{ Params: { id: string } }>('/api/ai/cli/:id', async request => aiSettings.saveCli(request.params.id, request.body))
+  app.put<{ Body: { provider: string } }>('/api/ai/default', async request => {
+    const body = z.object({ provider: z.string() }).parse(request.body)
+    if (!agentService.list().find(agent => agent.id === body.provider)?.available) throw new PdfpalError('AI_UNAVAILABLE', '该服务当前不可调用，请先完成安装或设置。', 2)
+    aiSettings.select(body.provider); return { ok: true }
+  })
+  app.post<{ Params: { id: string } }>('/api/ai/api/:id/test', async request => {
+    if (!apiIds.includes(request.params.id as ApiId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
+    return apiAgent.test(request.params.id as ApiId)
+  })
+  app.post<{ Params: { id: string } }>('/api/ai/api/:id/balance', async request => {
+    if (!apiIds.includes(request.params.id as ApiId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
+    return apiAgent.balance(request.params.id as ApiId)
+  })
 
   app.get('/api/projects', async () => projects.list())
   app.post<{ Body: { title: string; description?: string } }>('/api/projects', async request => projects.create(request.body.title, request.body.description))
@@ -109,7 +137,7 @@ export async function buildServer(config: PdfpalConfig) {
     const selectors = request.body.source_id ? [request.body.source_id] : request.body.active_source_ids
     const result = await chat.ask(request.body.project_id, request.body.message, { sourceSelectors: selectors, collectionSelector: request.body.collection_id, agent: request.body.agent, model: request.body.model })
     reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
-    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources })}\n\n`)
+    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, usage: result.usage })}\n\n`)
     reply.raw.end('data: [DONE]\n\n')
   })
   app.get<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId/chat', async request => ({ messages: chat.history(request.params.projectId, request.params.sourceId).map(parseSources) }))
@@ -135,7 +163,7 @@ export async function buildServer(config: PdfpalConfig) {
   registerAnnotationRoutes(app, db)
   registerResearchRoutes(app, db, config)
 
-  const frontend = [path.resolve('frontend/dist'), path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../frontend/dist')].find(candidate => fs.existsSync(path.join(candidate, 'index.html')))
+  const frontend = [path.resolve('frontend/dist'), path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../frontend/dist')].find(candidate => fs.existsSync(path.join(candidate, 'index.html')))
   if (frontend) {
     await app.register(staticPlugin, { root: frontend, wildcard: false })
     app.setNotFoundHandler((request, reply) => request.url.startsWith('/api/') ? reply.status(404).send({ detail: 'Not Found' }) : reply.sendFile('index.html'))
@@ -145,7 +173,8 @@ export async function buildServer(config: PdfpalConfig) {
 }
 
 function parseSources(row: { sources_used: string } & Record<string, unknown>) {
-  try { return { ...row, sources_used: JSON.parse(row.sources_used || '[]') } } catch { return { ...row, sources_used: [] } }
+  try { const { usage_json, ...rest } = row
+  return { ...rest, sources_used: JSON.parse(row.sources_used || '[]'), usage: typeof usage_json === 'string' ? JSON.parse(usage_json) : undefined } } catch { return { ...row, sources_used: [] } }
 }
 
 function clearChat(db: import('better-sqlite3').Database, projectId: string, sourceId: string | null) {

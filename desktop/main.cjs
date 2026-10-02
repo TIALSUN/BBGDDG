@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell, safeStorage } = require('electron');
 const { fork, spawn } = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
+const { randomBytes } = require('node:crypto');
 
 app.setName('PDFPal');
 if (process.env.PDFPAL_DESKTOP_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.PDFPAL_DESKTOP_USER_DATA_DIR));
@@ -26,6 +27,17 @@ function startService() {
     log = fs.createWriteStream(logPath, { flags: 'a' });
     const codex = detectCodex();
     const env = { ...process.env, PDFPAL_DATA_DIR: dataDir };
+    // The master key is protected by Windows DPAPI through Electron safeStorage.
+    const protectedKeyPath = path.join(app.getPath('userData'), 'ai-secret-key.bin');
+    if (safeStorage.isEncryptionAvailable()) {
+      const legacyMasterKey = path.join(dataDir, '.ai-secret-key');
+      if (!fs.existsSync(protectedKeyPath)) {
+        const key = fs.existsSync(legacyMasterKey) ? fs.readFileSync(legacyMasterKey).toString('hex') : randomBytes(32).toString('hex');
+        fs.writeFileSync(protectedKeyPath, safeStorage.encryptString(key));
+        if (fs.existsSync(legacyMasterKey)) fs.unlinkSync(legacyMasterKey);
+      }
+      env.PDFPAL_AI_SECRET_KEY = safeStorage.decryptString(fs.readFileSync(protectedKeyPath));
+    }
     if (codex) { env.CODEX_BIN = codex; env.PDFPAL_AGENT ||= 'codex'; }
     delete env.ELECTRON_RUN_AS_NODE;
     service = fork(path.join(runtime, 'backend', 'backend.mjs'), [], {
@@ -74,7 +86,7 @@ function setMenu() {
       { label: '查看运行日志', click: () => void shell.openPath(logPath) },
       { label: '关于 PDFPal', click: () => void dialog.showMessageBox(window, {
         type: 'info', title: '关于 PDFPal', message: `PDFPal ${app.getVersion()} 中文桌面版`,
-        detail: '本地文献库 · PDF 阅读 · 高亮与注释\n\nAI 问答使用本机已安装并登录的 Codex、Claude 或 OpenCode。\n\n文献与笔记保存于：\n' + dataDir
+        detail: '本地文献库 · PDF 阅读 · 高亮与注释\n\nAI 问答支持本机命令行工具与自填 API。可在主页或阅读页的 AI 设置中配置。\n\n文献与笔记保存于：\n' + dataDir
       }) }
     ] }
   ]));

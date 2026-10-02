@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import 'katex/dist/katex.min.css'
 import './workspace.css'
+import './ai.css'
 
 import ProjectsPage from './pages/LibraryPage'
 import ProjectView from './pages/ProjectWorkspace'

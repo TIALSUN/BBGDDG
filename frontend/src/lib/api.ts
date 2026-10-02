@@ -19,6 +19,22 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface AiUsage { provider: string; model: string; inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedTokens?: number; costUsd?: number; costEstimated?: boolean; recordedAt: string }
+export interface UsageSummary { calls: number; reportedCalls: number; inputTokens: number; outputTokens: number; cachedTokens: number; totalTokens: number; last?: AiUsage }
+export interface AgentInfo { id: string; label: string; kind: 'cli' | 'api'; installed: boolean; available: boolean; model: string; status: string; quota: string; usage: UsageSummary }
+export interface ApiProfile { id: string; label: string; protocol: 'openai' | 'anthropic'; baseUrl: string; model: string; hasKey: boolean }
+export interface CliProfile { command: string; model: string; args?: string[] }
+export interface AiSettings { defaultProvider?: string; cli: Record<string, CliProfile | undefined>; api: ApiProfile[] }
+export const aiApi = {
+  agents: () => apiFetch<{ default: string; agents: AgentInfo[] }>('/agents'),
+  settings: () => apiFetch<AiSettings>('/ai/settings'),
+  select: (provider: string) => apiFetch('/ai/default', { method: 'PUT', body: JSON.stringify({ provider }) }),
+  saveApi: (id: string, data: { baseUrl: string; model: string; apiKey?: string; clearKey?: boolean }) => apiFetch<AiSettings>(`/ai/api/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  saveCli: (id: string, data: CliProfile) => apiFetch<AiSettings>(`/ai/cli/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  test: (id: string) => apiFetch<{ ok: boolean; models: string[]; message: string }>(`/ai/api/${id}/test`, { method: 'POST' }),
+  balance: (id: string) => apiFetch<{ available: boolean; balances?: { currency: string; total: string }[]; message: string }>(`/ai/api/${id}/balance`, { method: 'POST' }),
+}
+
 // ── Projects ─────────────────────────────────────────────────────────────────
 
 export interface Project {
@@ -144,6 +160,7 @@ export const notesApi = {
 }
 
 export interface ChatMessage {
+  usage?: AiUsage
   role: 'user' | 'assistant'
   content: string
   sources_used?: string[]

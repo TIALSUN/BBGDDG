@@ -10,6 +10,7 @@ import type { AskResult, Passage } from './types.js'
 import { PdfpalError } from './types.js'
 import fs from 'node:fs'
 import { extractPdf } from './pdf.js'
+import type { AiUsage } from './ai-settings.js'
 
 const now = () => new Date().toISOString()
 
@@ -71,11 +72,13 @@ export class ChatService {
       return out.length + block.length <= 80_000 ? out + block : out
     }, '')
     const prompt = `You are a research assistant. Answer from the supplied passages and local documents. Consult complete local files whenever excerpts are insufficient. Cite source titles and page numbers when possible. If the available documents are insufficient, say so.\n\nPassages:${context}${history.length ? `\n\nRecent conversation:\n${history.map(message => `${message.role}: ${message.content}`).join('\n')}` : ''}\n\nUser: ${question}\nAssistant:`
-    const answer = await this.agents.invoke(prompt, options.agent, options.model, documents)
+    const response = await this.agents.invokeDetailed(prompt, options.agent, options.model, documents)
+    const answer = response.answer
     const sourceIds = [...new Set([...passages.map(passage => passage.source_id), ...documentSources.filter(source => this.sources.pdfPath(source)).map(source => source.id)])]
-    const sessionId = this.persist(project.id, selected.length === 1 ? selected[0]!.id : null, question, answer, sourceIds)
+    const sessionId = this.persist(project.id, selected.length === 1 ? selected[0]!.id : null, question, answer, sourceIds, response.usage)
     return {
       answer,
+      usage: response.usage,
       project: { id: project.id, title: project.title },
       sources: sourceIds.map(id => {
         const relevant = passages.filter(passage => passage.source_id === id)
@@ -85,15 +88,15 @@ export class ChatService {
     }
   }
 
-  history(projectId: string, sourceId?: string): Array<{ role: string; content: string; sources_used: string; created_at: string }> {
+  history(projectId: string, sourceId?: string): Array<{ role: string; content: string; sources_used: string; created_at: string; usage_json: string | null }> {
     const session = sourceId
       ? this.db.prepare('SELECT id FROM chat_sessions WHERE project_id=? AND source_id=? ORDER BY accessed_at DESC LIMIT 1').get(projectId, sourceId)
       : this.db.prepare('SELECT id FROM chat_sessions WHERE project_id=? AND source_id IS NULL ORDER BY accessed_at DESC LIMIT 1').get(projectId)
     if (!session) return []
-    return this.db.prepare('SELECT role,content,sources_used,created_at FROM chat_messages WHERE session_id=? ORDER BY id').all((session as { id: string }).id) as ReturnType<ChatService['history']>
+    return this.db.prepare('SELECT role,content,sources_used,created_at,usage_json FROM chat_messages WHERE session_id=? ORDER BY id').all((session as { id: string }).id) as ReturnType<ChatService['history']>
   }
 
-  private persist(projectId: string, sourceId: string | null, question: string, answer: string, sourceIds: string[]): string {
+  private persist(projectId: string, sourceId: string | null, question: string, answer: string, sourceIds: string[], usage: AiUsage): string {
     return this.db.transaction(() => {
       const existing = sourceId
         ? this.db.prepare('SELECT id FROM chat_sessions WHERE project_id=? AND source_id=? ORDER BY accessed_at DESC LIMIT 1').get(projectId, sourceId)
@@ -103,9 +106,9 @@ export class ChatService {
       if (!existing) this.db.prepare('INSERT INTO chat_sessions(id,project_id,source_id,title,created_at,accessed_at) VALUES (?,?,?,?,?,?)')
         .run(id, projectId, sourceId, sourceId ? 'Chat' : 'Project Chat', timestamp, timestamp)
       else this.db.prepare('UPDATE chat_sessions SET accessed_at=? WHERE id=?').run(timestamp, id)
-      const insert = this.db.prepare('INSERT INTO chat_messages(session_id,role,content,sources_used,created_at) VALUES (?,?,?,?,?)')
-      insert.run(id, 'user', question, JSON.stringify(sourceIds), timestamp)
-      insert.run(id, 'assistant', answer, JSON.stringify(sourceIds), now())
+      const insert = this.db.prepare('INSERT INTO chat_messages(session_id,role,content,sources_used,created_at,usage_json) VALUES (?,?,?,?,?,?)')
+      insert.run(id, 'user', question, JSON.stringify(sourceIds), timestamp, null)
+      insert.run(id, 'assistant', answer, JSON.stringify(sourceIds), now(), JSON.stringify(usage))
       return id
     })()
   }

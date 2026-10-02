@@ -10,7 +10,7 @@ const ConfigSchema = z.object({
   backupsDir: z.string(),
   port: z.number().int().positive().max(65535),
   host: z.string(),
-  agent: z.enum(['claude', 'codex', 'opencode']),
+  agent: z.enum(['claude', 'codex', 'opencode', 'workbuddy', 'deepseek-harness', 'api-deepseek', 'api-compatible', 'api-claude']),
   model: z.string(),
   claudeBin: z.string(),
   codexBin: z.string(),

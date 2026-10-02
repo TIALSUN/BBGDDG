@@ -1,0 +1,35 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import http from 'node:http';
+import assert from 'node:assert/strict';
+import { once } from 'node:events';
+import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+const desktop=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),repo=path.dirname(desktop),work=path.dirname(repo);
+const require=createRequire(path.join(repo,'package.json'));const {_electron}=require('playwright');
+const mock=http.createServer(async(req,res)=>{for await(const _ of req){}res.setHeader('content-type','application/json');res.end(JSON.stringify(req.url.endsWith('/models')?{data:[{id:'desktop-test-model'}]}:{model:'desktop-test-model',choices:[{message:{content:'桌面 AI 接口验证成功'}}],usage:{prompt_tokens:55,completion_tokens:11,total_tokens:66}}));});
+mock.listen(0,'127.0.0.1');await once(mock,'listening');
+const userData=fs.mkdtempSync(path.join(work,'desktop-ai-test-')),secret='synthetic-desktop-test-only';
+const executablePath=process.argv[2]||path.join(desktop,'node_modules/electron/dist/electron.exe');
+const launch=()=>_electron.launch({executablePath,args:process.argv[2]?[]:[desktop],env:{...process.env,PDFPAL_DESKTOP_USER_DATA_DIR:userData},timeout:60000});
+let electron,origin;
+try {
+ electron=await launch();let page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;
+ const agents=await(await page.request.get(origin+'/api/agents')).json();assert.equal(agents.agents.length,8);assert.ok(agents.agents.find(a=>a.id==='codex').available);
+ assert.equal(await electron.evaluate(({safeStorage})=>safeStorage.isEncryptionAvailable()),true);
+ assert.ok(fs.existsSync(path.join(userData,'ai-secret-key.bin')));assert.equal(fs.existsSync(path.join(userData,'data','.ai-secret-key')),false);
+ const result=await page.request.put(origin+'/api/ai/api/api-compatible',{data:{baseUrl:`http://127.0.0.1:${mock.address().port}/v1`,model:'desktop-test-model',apiKey:secret}});assert.equal(result.status(),200);assert.ok(!(await result.text()).includes(secret));
+ assert.ok(!fs.readFileSync(path.join(userData,'data','ai-settings.json'),'utf8').includes(secret));
+ await page.request.put(origin+'/api/ai/default',{data:{provider:'api-compatible'}});
+ const project=await(await page.request.post(origin+'/api/projects',{data:{title:'桌面多 AI 验证'}})).json();
+ const upload=await page.request.post(`${origin}/api/projects/${project.id}/sources/upload`,{multipart:{file:{name:'桌面 AI 测试.pdf',mimeType:'application/pdf',buffer:fs.readFileSync(path.join(repo,'test/fixtures/sample.pdf'))}}});assert.equal(upload.status(),200);const source=await upload.json();
+ await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);await page.locator('[data-pdf-page="1"] .textLayer span').first().waitFor();await page.getByRole('button',{name:'AI 对话',exact:true}).click();
+ const textarea=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await textarea.fill('验证本地 PDF 问答');await textarea.press('Enter');await page.locator('.ai-message-usage').filter({hasText:'desktop-test-model'}).waitFor();
+ assert.match(await page.locator('.ai-message-usage').innerText(),/55/);
+ await electron.close();electron=undefined;await assert.rejects(fetch(origin+'/api/health',{signal:AbortSignal.timeout(2000)}));
+ electron=await launch();page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;
+ const probe=await page.request.post(origin+'/api/ai/api/api-compatible/test');assert.equal(probe.status(),200);
+ const history=await(await page.request.get(`${origin}/api/projects/${project.id}/sources/${source.id}/chat`)).json();assert.equal(history.messages[1].usage.totalTokens,66);
+ assert.equal((await(await page.request.get(origin+'/api/agents')).json()).default,'api-compatible');
+ console.log(JSON.stringify({nativeApp:'passed',providers:8,windowsKeyProtection:'passed',apiAndUsage:'passed',restartPersistence:'passed',realProviderRequests:0}));
+} finally {await electron?.close();await new Promise(resolve=>mock.close(resolve));}

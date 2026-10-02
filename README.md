@@ -230,3 +230,15 @@ The implementation follows that split:
 The npm package contains the compiled TypeScript server/CLI and the built React frontend. Runtime state stays local under `~/.pdfpal` by default, while external network edges are limited to source URLs, OpenAlex, Semantic Scholar, and capabilities provided by the selected agent. It is intended for local, single-user operation.
 
 *AI to read deeper, not to avoid reading.*
+
+## 中文桌面版 2.1.0：AI 服务与用量
+
+主页和 PDF 阅读页均可选择 AI 服务；已检测到可调用命令或完整 API 配置的选项亮色显示。命令行工具仍需在各自工具中完成登录。
+
+- Codex、Claude Code、DeepSeek Harness（`dsh`）与 OpenCode 支持非交互调用。CLI 路径与模型可在 AI 设置中调整；Harness 的模型由其自身配置决定。
+- 腾讯 WorkBuddy 的公开文档尚未确认可供第三方问答的非交互 CLI。保留独立入口，可配置已验证的命令或适配器路径、JSON 参数数组；问题通过标准输入传入，输出须为纯文本或 Claude Code 格式的 JSON result。安装桌面客户端本身不代表可直接调用。
+- 支持 DeepSeek、OpenAI 兼容接口和 Claude API。填写接口基础地址、服务商模型名称和密钥后保存，连接测试读取模型列表，问答时才生成回答。兼容接口通常需包含 `/v1`；Claude 默认使用 `https://api.anthropic.com/v1`。
+- 每条回答保存服务、模型及工具实际返回的 token 数；主页显示本软件累计用量。未回传的数据标为未知，不推算账户订阅额度。DeepSeek 官方 API 的余额可在设置中主动查询；CLI 客户端返回的费用标为估算。
+- 密钥不回显，使用 AES-GCM 本机加密。Windows 桌面版另以系统凭据保护主密钥，数据仍位于原用户数据目录，升级保留文献与笔记。源码开发模式的本地密钥文件应和数据目录一起保护。
+
+本地开发约定见 `AGENTS.md`：每轮修改验证后自动提交 Git，不自动推送。

@@ -4,10 +4,13 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { chatApi } from '../lib/api'
-import { useAgent } from '../hooks/useAgent'
+import { useAgent, notifyAiChange } from '../hooks/useAgent'
+import AiUsageView from './AiUsageView'
+import type { AiUsage } from '../lib/api'
 import AgentSelect from './AgentSelect'
 
 interface Message {
+  usage?: AiUsage
   role: 'user' | 'assistant'
   content: string
 }
@@ -47,9 +50,9 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         .then(r => r.ok ? r.json() : { messages: [] })
         .then(data => {
           if (data.messages?.length > 0) {
-            setMessages(data.messages.map((m: { role: string; content: string }) => ({
+            setMessages(data.messages.map((m: { role: string; content: string; usage?: AiUsage }) => ({
               role: m.role as 'user' | 'assistant',
-              content: m.content
+              content: m.content, usage: m.usage
             })))
           }
         })
@@ -77,7 +80,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   }, [selectedText, disabled])
 
   const send = async () => {
-    if (!input.trim() || loading || disabled) return
+    if (!agent || !input.trim() || loading || disabled) return
     const userMsg = input.trim()
     setInput('')
     setError('')
@@ -108,6 +111,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
       const decoder = new TextDecoder()
       let buffer = ''
       let assistantText = ''
+      let assistantUsage: AiUsage | undefined
 
       while (true) {
         const { done, value } = await reader.read()
@@ -124,6 +128,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               const parsed = JSON.parse(payload)
               if (parsed.error) throw new Error(parsed.error)
               if (parsed.text) assistantText = parsed.text
+              if (parsed.usage) assistantUsage = parsed.usage
             } catch (e: any) {
               // ignore JSON parse errors for [DONE] and other non-JSON payloads
             }
@@ -131,7 +136,8 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         }
       }
 
-      setMessages([...newHistory, { role: 'assistant', content: assistantText }])
+      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage }])
+      notifyAiChange()
     } catch (e: any) {
       setError(e.message || "出现错误")
       setMessages(newHistory)
@@ -233,7 +239,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               whiteSpace: msg.role === 'user' ? 'pre-wrap' : undefined,
             }}>
               {msg.role === 'assistant' ? (
-                <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown></div>
+                <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown><AiUsageView usage={msg.usage}/></div>
               ) : msg.content}
             </div>
           </div>
@@ -268,8 +274,8 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
           value={input}
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          disabled={disabled || loading}
-          placeholder={disabled ? "请先加载 PDF…" : "输入问题…（Enter 发送，Shift+Enter 换行）"}
+          disabled={!agent || disabled || loading}
+          placeholder={!agent ? "请在 AI 设置中配置一个服务…" : disabled ? "请先加载 PDF…" : "输入问题…（Enter 发送，Shift+Enter 换行）"}
           rows={3}
           style={{
             flex: 1,
@@ -289,7 +295,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         />
         <button
           onClick={send}
-          disabled={disabled || loading || !input.trim()}
+          disabled={!agent || disabled || loading || !input.trim()}
           style={{
             background: disabled || !input.trim() ? '#2a2a2a' : 'var(--accent)',
             color: disabled || !input.trim() ? '#6b7280' : '#fff',

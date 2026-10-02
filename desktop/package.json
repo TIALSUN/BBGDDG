@@ -1,6 +1,6 @@
 {
   "name": "pdfpal-desktop",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "PDFPal 中文桌面版 · 本地 PDF 阅读与研究",
   "author": "PDFPal",
   "license": "MIT",
@@ -22,13 +22,46 @@
     "asar": true,
     "npmRebuild": false,
     "afterPack": "after-pack.cjs",
-    "directories": { "output": "../../../outputs", "buildResources": "assets" },
-    "files": ["main.cjs", "loading.html", "assets/icon.png", "package.json"],
+    "directories": {
+      "output": "../../../outputs",
+      "buildResources": "assets"
+    },
+    "files": [
+      "main.cjs",
+      "loading.html",
+      "assets/icon.png",
+      "package.json"
+    ],
     "extraResources": [
-      { "from": "runtime/backend", "to": "backend", "filter": ["**/*", "!**/test/**", "!**/tests/**", "!**/*.map"] },
-      { "from": "runtime/backend/node_modules", "to": "backend/node_modules", "filter": ["**/*", "!**/test/**", "!**/tests/**", "!**/*.map", "!.bin/**"] },
-      { "from": "runtime/node.exe", "to": "node.exe" },
-      { "from": "THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt" }
+      {
+        "from": "runtime/backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!**/test/**",
+          "!**/tests/**",
+          "!**/*.map"
+        ]
+      },
+      {
+        "from": "runtime/backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!**/test/**",
+          "!**/tests/**",
+          "!**/*.map",
+          "!.bin/**"
+        ]
+      },
+      {
+        "from": "runtime/node.exe",
+        "to": "node.exe"
+      },
+      {
+        "from": "THIRD-PARTY-NOTICES.txt",
+        "to": "THIRD-PARTY-NOTICES.txt"
+      }
     ],
     "win": {
       "icon": "assets/icon.ico",
@@ -43,9 +76,13 @@
       "shortcutName": "PDFPal",
       "deleteAppDataOnUninstall": false,
       "runAfterFinish": false,
-      "installerLanguages": ["zh_CN"],
+      "installerLanguages": [
+        "zh_CN"
+      ],
       "language": "2052"
     },
-    "portable": { "artifactName": "PDFPal-${version}-便携版.${ext}" }
+    "portable": {
+      "artifactName": "PDFPal-${version}-便携版.${ext}"
+    }
   }
 }

@@ -9,7 +9,9 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 import rehypeKatex from 'rehype-katex'
 import { sourcesApi, collectionsApi, chatApi, type Source, type Collection } from '../lib/api'
-import { useAgent } from '../hooks/useAgent'
+import { useAgent, notifyAiChange } from '../hooks/useAgent'
+import AiUsageView from '../components/AiUsageView'
+import type { AiUsage } from '../lib/api'
 import AgentSelect from '../components/AgentSelect'
 
 /** Collection subtree (the collection id plus all descendant collection ids). */
@@ -26,6 +28,7 @@ function subtreeIds(collections: Collection[], rootId: string): Set<string> {
 }
 
 interface Message {
+  usage?: AiUsage
   role: 'user' | 'assistant'
   content: string
   sources_used?: string[]
@@ -71,6 +74,7 @@ export default function ProjectChat() {
           role: m.role,
           content: m.content,
           sources_used: m.sources_used || [],
+          usage: m.usage,
         })))
       }
     })
@@ -92,7 +96,7 @@ export default function ProjectChat() {
   const activeSources = sources.filter(s => activeSourceIds.has(s.id))
 
   const send = async () => {
-    if (!input.trim() || loading || activeSources.length === 0) return
+    if (!agent || !input.trim() || loading || activeSources.length === 0) return
     const userMsg = input.trim()
     setInput('')
     setError('')
@@ -124,6 +128,7 @@ export default function ProjectChat() {
       const decoder = new TextDecoder()
       let buffer = ''
       let assistantText = ''
+      let assistantUsage: AiUsage | undefined
 
       while (true) {
         const { done, value } = await reader.read()
@@ -139,6 +144,7 @@ export default function ProjectChat() {
               const parsed = JSON.parse(payload)
               if (parsed.error) throw new Error(parsed.error)
               if (parsed.text) assistantText = parsed.text
+              if (parsed.usage) assistantUsage = parsed.usage
             } catch { /* ignore parse errors */ }
           }
         }
@@ -148,7 +154,9 @@ export default function ProjectChat() {
         role: 'assistant',
         content: assistantText,
         sources_used: activeSources.map(s => s.id),
+        usage: assistantUsage,
       }])
+      notifyAiChange()
     } catch (e: any) {
       setError(e.message || "出现错误")
       setMessages(newHistory)
@@ -262,6 +270,7 @@ export default function ProjectChat() {
                     : msg.content
                   }
                 </div>
+                {msg.role === 'assistant' && <AiUsageView usage={msg.usage}/>}
                 {/* Source attribution chips */}
                 {msg.role === 'assistant' && msg.sources_used && msg.sources_used.length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 6 }}>
@@ -304,7 +313,7 @@ export default function ProjectChat() {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={loading || activeSources.length === 0}
+            disabled={!agent || loading || activeSources.length === 0}
             placeholder={activeSources.length === 0 ? "请至少启用一篇文献…" : `针对 ${activeSources.length} 篇文献提问…（Enter 发送，Shift+Enter 换行）`}
             rows={3}
             style={{
@@ -316,7 +325,7 @@ export default function ProjectChat() {
           />
           <button
             onClick={send}
-            disabled={loading || !input.trim() || activeSources.length === 0}
+            disabled={!agent || loading || !input.trim() || activeSources.length === 0}
             style={{
               background: loading || !input.trim() || activeSources.length === 0 ? '#2a2a2a' : 'var(--accent)',
               color: loading || !input.trim() ? '#6b7280' : '#fff',

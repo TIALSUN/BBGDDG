@@ -125,7 +125,7 @@ program.command('ask')
   .argument('[question]')
   .option('-s, --source <source...>', 'restrict context to one or more sources')
   .option('-c, --collection <collection>', 'restrict context to a collection subtree')
-  .addOption(new Option('-a, --agent <agent>').choices(['claude', 'codex', 'opencode']))
+  .addOption(new Option('-a, --agent <agent>').choices(['claude', 'codex', 'opencode', 'workbuddy', 'deepseek-harness', 'api-deepseek', 'api-compatible', 'api-claude']))
   .option('-m, --model <model>')
   .action(async (p, question, options, command) => {
     const prompt = question ?? await readStdin()

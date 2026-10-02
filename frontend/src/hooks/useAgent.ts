@@ -1,46 +1,35 @@
-import { useState, useEffect } from 'react'
-
-export interface AgentInfo {
-  id: string
-  label: string
-  available: boolean
-}
-
-const STORAGE_KEY = 'pdfpal.agent'
+import { useState, useEffect, useCallback } from 'react'
+import { aiApi, type AgentInfo } from '../lib/api'
+export type { AgentInfo } from '../lib/api'
+export const notifyAiChange = () => window.dispatchEvent(new Event('pdfpal-ai-change'))
 
 /**
  * Loads the server's agent list (GET /api/agents) and the user's persisted
- * selection. The chosen agent is stored in localStorage so it survives across
+ * selection. The chosen agent is stored by the local server so it survives across
  * the per-source and project-chat panels. Falls back to the server default
  * when the stored choice is no longer available.
  */
 export function useAgent() {
   const [agents, setAgents] = useState<AgentInfo[]>([])
   const [agent, setAgent] = useState<string>('')
-
-  useEffect(() => {
-    fetch('/api/agents')
-      .then(r => (r.ok ? r.json() : null))
-      .then(data => {
-        if (!data) return
-        const all: AgentInfo[] = data.agents || []
-        setAgents(all)
-        const stored = localStorage.getItem(STORAGE_KEY)
-        const availableIds = all.filter(a => a.available).map(a => a.id)
-        const effective =
-          stored && availableIds.includes(stored) ? stored : data.default
-        localStorage.setItem(STORAGE_KEY, effective)
-        setAgent(effective)
-      })
-      .catch(() => {})
+  const [error, setError] = useState(''), [loading, setLoading] = useState(true)
+  const refresh = useCallback(async () => {
+    try {
+      const data = await aiApi.agents(); setAgents(data.agents)
+      const available = data.agents.filter(item => item.available)
+      setAgent(available.find(item => item.id === data.default)?.id || available[0]?.id || ''); setError('')
+    } catch (error) { setError(error instanceof Error ? error.message : '无法读取 AI 工具状态。') }
+    finally { setLoading(false) }
   }, [])
-
-  const selectAgent = (id: string) => {
-    localStorage.setItem(STORAGE_KEY, id)
-    setAgent(id)
+  useEffect(() => {
+    void refresh(); const listener = () => { void refresh() }
+    window.addEventListener('pdfpal-ai-change', listener)
+    return () => window.removeEventListener('pdfpal-ai-change', listener)
+  }, [refresh])
+  const selectAgent = async (id: string) => {
+    if (!agents.find(item => item.id === id)?.available) return
+    try { await aiApi.select(id); setAgent(id); notifyAiChange() }
+    catch (error) { setError(error instanceof Error ? error.message : '切换失败。') }
   }
-
-  const available = agents.filter(a => a.available)
-
-  return { agent, setAgent: selectAgent, agents: available }
+  return { agent, setAgent: selectAgent, agents, refresh, error, loading, current: agents.find(item => item.id === agent) }
 }
