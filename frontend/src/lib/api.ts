@@ -165,7 +165,17 @@ export const notesApi = {
     apiFetch(`/projects/${projectId}/notes/${noteId}`, { method: 'DELETE' }),
 }
 
+export type ContextScope = 'selection' | 'document' | 'project'
+export interface ChatReference { id:number; sourceId:string; title:string; page:number; excerpt:string; canJump:boolean }
+export interface ChatMemory { summary:string; enabled:boolean; throughId:number; revision:number; updatedAt:string|null }
+const memoryPath=(project:string,source?:string)=>source?`/projects/${project}/sources/${source}/memory`:`/projects/${project}/memory`
+export const memoryApi={
+  get:(project:string,source?:string)=>apiFetch<ChatMemory>(memoryPath(project,source)),
+  save:(project:string,source:string|undefined,data:Pick<ChatMemory,'summary'|'enabled'|'revision'>)=>apiFetch<ChatMemory>(memoryPath(project,source),{method:'PUT',body:JSON.stringify(data)}),
+}
 export interface ChatMessage {
+  references?: ChatReference[]
+  contextScope?: ContextScope
   usage?: AiUsage
   role: 'user' | 'assistant'
   content: string

@@ -16,6 +16,7 @@ import { NoteService } from '../core/notes.js'
 import { RetrievalService } from '../core/retrieval.js'
 import { listHighlights } from '../core/highlights.js'
 import { ChatService } from '../core/chat.js'
+import { ChatMemoryStore } from '../core/chat-memory.js'
 import { AgentService, type AgentName } from '../core/agents.js'
 import { AiSettingsStore, apiIds, type ApiId } from '../core/ai-settings.js'
 import { ApiAgent } from '../core/ai-api.js'
@@ -38,6 +39,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   const collections = new CollectionService(db)
   const notes = new NoteService(db, config)
   const chat = new ChatService(db, config)
+  const memories = new ChatMemoryStore(db,config)
   const aiSettings = new AiSettingsStore(config)
   const apiAgent = new ApiAgent(aiSettings)
   const agentService = new AgentService(config)
@@ -134,16 +136,21 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   })
 
   app.post<{ Body: { message: string; project_id: string; source_id?: string; active_source_ids?: string[]; collection_id?: string; agent?: AgentName; model?: string } }>('/api/chat', async (request, reply) => {
-    const selectors = request.body.source_id ? [request.body.source_id] : request.body.active_source_ids
-    const result = await chat.ask(request.body.project_id, request.body.message, { sourceSelectors: selectors, collectionSelector: request.body.collection_id, agent: request.body.agent, model: request.body.model })
+    const body=z.object({message:z.string().trim().min(1).max(30000),project_id:z.string().min(1),source_id:z.string().nullable().optional(),active_source_ids:z.array(z.string()).max(100).optional(),collection_id:z.string().optional(),agent:z.string().optional(),model:z.string().optional(),context_scope:z.enum(['selection','document','project']).optional(),selected_text:z.string().max(20000).optional()}).strict().parse(request.body)
+    const selectors = body.source_id ? [body.source_id] : body.active_source_ids
+    const result = await chat.ask(request.body.project_id, request.body.message, { sourceSelectors: selectors, collectionSelector: body.collection_id, agent: body.agent as AgentName, model: body.model, contextScope:body.context_scope,selectedText:body.selected_text,conversationSourceId:body.source_id??(body.active_source_ids?null:undefined) })
     reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
-    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, usage: result.usage })}\n\n`)
+    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, references:result.references,contextScope:result.contextScope,memoryWarning:result.memoryWarning,usage: result.usage })}\n\n`)
     reply.raw.end('data: [DONE]\n\n')
   })
+  for(const route of ['/api/projects/:projectId/memory','/api/projects/:projectId/sources/:sourceId/memory']){
+    app.get<{Params:{projectId:string;sourceId?:string}}>(route,async request=>memories.get(request.params.projectId,request.params.sourceId))
+    app.put<{Params:{projectId:string;sourceId?:string}}>(route,async request=>memories.save(request.params.projectId,request.params.sourceId,request.body))
+  }
   app.get<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId/chat', async request => ({ messages: chat.history(request.params.projectId, request.params.sourceId).map(parseSources) }))
   app.get<{ Params: Pick<Params, 'projectId'> }>('/api/projects/:projectId/chat', async request => ({ messages: chat.history(request.params.projectId).map(parseSources) }))
-  app.delete<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId/chat', async request => clearChat(db, request.params.projectId, request.params.sourceId))
-  app.delete<{ Params: Pick<Params, 'projectId'> }>('/api/projects/:projectId/chat', async request => clearChat(db, request.params.projectId, null))
+  app.delete<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId/chat', async request => {memories.clear(request.params.projectId,request.params.sourceId);return clearChat(db, request.params.projectId, request.params.sourceId)})
+  app.delete<{ Params: Pick<Params, 'projectId'> }>('/api/projects/:projectId/chat', async request => {memories.clear(request.params.projectId);return clearChat(db, request.params.projectId, null)})
   app.get<{ Params: Pick<Params, 'projectId'> }>('/api/projects/:projectId/chats', async request => db.prepare(`SELECT cs.id,cs.source_id,cs.title,cs.created_at,cs.accessed_at,s.title source_title,
     (SELECT COUNT(*) FROM chat_messages WHERE session_id=cs.id) message_count,
     (SELECT content FROM chat_messages WHERE session_id=cs.id AND role='user' ORDER BY id LIMIT 1) first_message
@@ -173,8 +180,8 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
 }
 
 function parseSources(row: { sources_used: string } & Record<string, unknown>) {
-  try { const { usage_json, ...rest } = row
-  return { ...rest, sources_used: JSON.parse(row.sources_used || '[]'), usage: typeof usage_json === 'string' ? JSON.parse(usage_json) : undefined } } catch { return { ...row, sources_used: [] } }
+  try { const { usage_json, references_json, context_scope, ...rest } = row
+  return { ...rest, sources_used: JSON.parse(row.sources_used || '[]'), references: typeof references_json==='string'?JSON.parse(references_json):[],contextScope:context_scope,usage: typeof usage_json === 'string' ? JSON.parse(usage_json) : undefined } } catch { return { ...row, sources_used: [] } }
 }
 
 function clearChat(db: import('better-sqlite3').Database, projectId: string, sourceId: string | null) {

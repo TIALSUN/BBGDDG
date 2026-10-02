@@ -1,0 +1,12 @@
+import {useEffect,useState} from 'react'
+import {memoryApi,type ChatMemory} from '../lib/api'
+export default function ChatMemoryPanel({projectId,sourceId,refresh,disabled=false}:{projectId?:string|null;sourceId?:string|null;refresh:number;disabled?:boolean}){
+ const [memory,setMemory]=useState<ChatMemory|null>(null),[summary,setSummary]=useState(''),[enabled,setEnabled]=useState(true),[open,setOpen]=useState(false),[dirty,setDirty]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('')
+ useEffect(()=>{if(!projectId||dirty)return;let cancelled=false;memoryApi.get(projectId,sourceId??undefined).then(value=>{if(cancelled)return;setMemory(value);if(!dirty){setSummary(value.summary);setEnabled(value.enabled)}}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[projectId,sourceId,refresh,dirty])
+ async function save(clear=false){if(!projectId||!memory||busy)return;setBusy(true);setError('');try{const value=await memoryApi.save(projectId,sourceId??undefined,{summary:clear?'':summary,enabled,revision:memory.revision});setMemory(value);setSummary(value.summary);setEnabled(value.enabled);setDirty(false)}catch(e){setError(e instanceof Error?e.message:'记忆保存失败。')}finally{setBusy(false)}}
+ return <section className="chat-memory" aria-label="对话记忆">
+  <button className="memory-toggle" type="button" aria-expanded={open} onClick={()=>setOpen(v=>!v)}>对话记忆 <span>{memory?.summary?'已有摘要':'尚无摘要'}{memory&&!memory.enabled?' · 自动整理已暂停':''}</span><span aria-hidden="true">{open?'⌃':'⌄'}</span></button>
+  {open&&<div className="memory-editor"><p>结合最近 5 轮对话与较早内容的摘要。自动整理会额外调用当前 AI，消耗用量；摘要可能有误，可在这里修正。暂停后仍使用已有摘要。</p><label><input type="checkbox" checked={enabled} disabled={busy||disabled} onChange={e=>{setEnabled(e.target.checked);setDirty(true)}}/>自动整理较早对话</label><label className="memory-text">记忆摘要<textarea aria-label="记忆摘要" maxLength={6000} rows={5} value={summary} disabled={!memory||busy||disabled} onChange={e=>{setSummary(e.target.value);setDirty(true)}} placeholder="对话超过 5 轮后自动整理，也可以手动填写讨论结论。"/></label><div className="memory-actions"><button className="secondary" disabled={!memory||!dirty||busy||disabled} onClick={()=>void save()}>保存记忆</button><button className="text-button" disabled={!memory||busy||disabled||!summary} onClick={()=>void save(true)}>清空摘要</button>{dirty&&<span>尚未保存</span>}</div></div>}
+  {error&&<p role="alert" className="error-message">{error}<button className="text-button" onClick={()=>{setDirty(false);setError('')}}>重新读取</button></p>}
+ </section>
+}

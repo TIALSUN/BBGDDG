@@ -18,7 +18,7 @@ interface Props {
   url: string
   pages: number
   initialPage?: number
-  pageRequest?: {page:number;key:number}
+  pageRequest?: {page:number;key:number;excerpt?:string}
   isResizing?: boolean
   onPageChange?: (page: number) => void
   onTextSelected?: (text: string) => void
@@ -96,7 +96,7 @@ export default function PdfViewer({
   url, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
   annotations, onHighlightCreate, onNoteCreate, onHighlightClick, onHighlightDelete,
 }: Props) {
-  const requestedPage = normalizePage(initialPage)
+  const requestedPage = normalizePage(pageRequest?.page??initialPage)
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(requestedPage)
   const [restored, setRestored] = useState(false)
@@ -220,7 +220,13 @@ export default function PdfViewer({
     const target=scroll.querySelector<HTMLElement>(`[data-pdf-page="${next}"]`)
     if(target){scroll.scrollTop+=target.getBoundingClientRect().top-scroll.getBoundingClientRect().top-16;setCurrentPage(next);currentPageRef.current=next;onPageChange?.(next)}
   }
-  useEffect(()=>{if(pageRequest)jump(pageRequest.page)},[pageRequest?.key,numPages])
+  const appliedPageRequest=useRef<number|undefined>(undefined)
+  useEffect(()=>{
+    if(!pageRequest||!restored||appliedPageRequest.current===pageRequest.key)return
+    jump(pageRequest.page)
+    const target=scrollRef.current?.querySelector<HTMLElement>('[data-pdf-page="'+pageRequest.page+'"]')
+    if(target?.dataset.pdfReady==='true')appliedPageRequest.current=pageRequest.key
+  },[pageRequest?.key,numPages,restored,pageLayoutVersion])
 
   // Always pass width in fit mode; pass scale only in manual zoom mode
   const pageWidth = fitWidth ? containerWidth || undefined : undefined
@@ -232,7 +238,7 @@ export default function PdfViewer({
   useEffect(() => {
     const scroll = scrollRef.current
     if (!scroll || !numPages || restored) return
-    const page = Math.min(numPages, normalizePage(initialPage))
+    const page = Math.min(numPages, normalizePage(pageRequest?.page??initialPage))
     const timer = setTimeout(() => {
       const target = scroll.querySelector<HTMLElement>(`[data-pdf-page="${page}"]`)
       if (!target) return
@@ -248,7 +254,7 @@ export default function PdfViewer({
       setRestored(true)
     }, 0)
     return () => clearTimeout(timer)
-  }, [containerWidth, initialPage, numPages, restored, url, pageLayoutVersion])
+  }, [containerWidth, initialPage, pageRequest?.key, numPages, restored, url, pageLayoutVersion])
 
   // A narrow observation band through the viewport center defines the current
   // reading page. This stays correct for mixed page sizes and avoids doing a
@@ -339,6 +345,7 @@ export default function PdfViewer({
               <LazyPdfPage
                 key={i}
                 pageNumber={pageNum}
+                citation={pageRequest?.page===pageNum&&pageRequest.excerpt?{key:pageRequest.key,excerpt:pageRequest.excerpt}:undefined}
                 pageWidth={pageWidth}
                 pageScale={pageScale}
                 onPageRendered={notifyPageRendered}
@@ -396,6 +403,7 @@ export default function PdfViewer({
 
 interface LazyPdfPageProps {
   pageNumber: number
+  citation?: {key:number;excerpt:string}
   pageWidth?: number
   pageScale?: number
   annotations: Annotation[]
@@ -410,12 +418,15 @@ interface LazyPdfPageProps {
 // lightweight placeholder and only mount pages as they approach the viewport.
 const PAGE_ASPECT_RATIO = 1.53
 
-function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighlightClick, onPageRendered }: LazyPdfPageProps) {
+function LazyPdfPage({ pageNumber, citation, pageWidth, pageScale, annotations, onHighlightClick, onPageRendered }: LazyPdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1)
   const [aspectRatio,setAspectRatio]=useState(PAGE_ASPECT_RATIO)
   const [renderReady, setRenderReady] = useState(false)
-  useEffect(() => setRenderReady(false), [pageWidth, pageScale])
+  const [textReady,setTextReady]=useState(false)
+  const [citationRects,setCitationRects]=useState<PageRect[]>([])
+  const handleTextRenderSuccess=useCallback(()=>setTextReady(true),[])
+  useEffect(() => {setRenderReady(false);setTextReady(false)}, [pageWidth, pageScale])
   const handleRenderSuccess = useCallback(() => {
     setRenderReady(true)
     onPageRendered?.()
@@ -435,6 +446,25 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
     observer.observe(pageRef.current)
     return () => observer.disconnect()
   }, [shouldRender])
+
+  useEffect(()=>{
+    setCitationRects([])
+    if(!citation||!textReady||!pageRef.current)return
+    const page=pageRef.current.querySelector('.react-pdf__Page') as HTMLElement|null
+    if(!page)return
+    const walker=document.createTreeWalker(page.querySelector('.textLayer')??page,NodeFilter.SHOW_TEXT)
+    const chars:{node:Node;offset:number}[]=[];let text='',node:Node|null
+    while((node=walker.nextNode())){const value=node.textContent??'';for(let i=0;i<value.length;i++)if(!/\s/.test(value[i])){text+=value[i];chars.push({node,offset:i})}}
+    const needle=citation.excerpt.replace(/\s/g,'').slice(0,160),start=needle?text.indexOf(needle):-1
+    if(start<0)return
+    const first=chars[start],last=chars[start+needle.length-1],range=document.createRange()
+    range.setStart(first.node,first.offset);range.setEnd(last.node,last.offset+1)
+    const box=page.getBoundingClientRect()
+    if(!box.width||!box.height)return
+    setCitationRects(Array.from(range.getClientRects()).filter(r=>r.width>0&&r.height>0).map(r=>({x1:(r.left-box.left)/box.width,y1:(r.top-box.top)/box.height,x2:(r.right-box.left)/box.width,y2:(r.bottom-box.top)/box.height})))
+    const timer=setTimeout(()=>setCitationRects([]),8000)
+    return()=>clearTimeout(timer)
+  },[citation?.key,textReady,pageWidth,pageScale])
 
   const placeholderWidth = pageWidth ?? 600 * (pageScale ?? 1)
   const placeholderHeight = placeholderWidth * aspectRatio
@@ -456,6 +486,7 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
             scale={pageScale}
             onLoadSuccess={page=>{const viewport=page.getViewport({scale:1});setAspectRatio(viewport.height/viewport.width)}}
             onRenderSuccess={handleRenderSuccess}
+            onRenderTextLayerSuccess={handleTextRenderSuccess}
             renderTextLayer={true}
             renderAnnotationLayer={true}
             loading={<LoadingPage />}
@@ -464,6 +495,7 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
         ) : (
           <div style={{ width: placeholderWidth, height: placeholderHeight, background: 'white' }} aria-label={`第 ${pageNumber} 页`} />
         )}
+        {citationRects.map((r,i)=><div key={'citation-'+i} data-citation-highlight="true" aria-hidden="true" style={{position:'absolute',left:r.x1*100+'%',top:r.y1*100+'%',width:(r.x2-r.x1)*100+'%',height:(r.y2-r.y1)*100+'%',background:'rgba(96,165,250,.36)',outline:'1px solid rgba(59,130,246,.5)',pointerEvents:'none',zIndex:3,mixBlendMode:'multiply'}}/>)}
         {annotations.map(ann =>
           // rects gives one box per selected line; annotations from before
           // that field existed only have the x1..y2 union.

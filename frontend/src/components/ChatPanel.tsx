@@ -1,15 +1,15 @@
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
+import ChatMemoryPanel from './ChatMemoryPanel'
+import ChatAnswer from './ChatAnswer'
 import { chatApi } from '../lib/api'
 import { useAgent, notifyAiChange } from '../hooks/useAgent'
 import AiUsageView from './AiUsageView'
-import type { AiUsage } from '../lib/api'
+import type { ChatReference, ContextScope, AiUsage } from '../lib/api'
 import AgentSelect from './AgentSelect'
 
 interface Message {
+  references?: ChatReference[]
+  contextScope?: ContextScope
   usage?: AiUsage
   role: 'user' | 'assistant'
   content: string
@@ -25,11 +25,12 @@ interface Props {
   projectId?: string | null
   sourceId?: string | null
   // v1 legacy
+  onReference?: (reference:ChatReference)=>void
   sessionId?: string | null
   initialMessages?: { role: string; content: string }[]
 }
 
-export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onSelectedTextUsed, projectId, sourceId, sessionId, initialMessages }: Props) {
+export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onSelectedTextUsed, projectId, sourceId, sessionId, initialMessages, onReference }: Props) {
   // Retained in the component contract for older callers; context is now
   // loaded by the server-side ChatService from source IDs.
   void pdfText
@@ -38,27 +39,32 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [scope,setScope]=useState<ContextScope>('document')
+  const [selection,setSelection]=useState('')
+  const [memoryRefresh,setMemoryRefresh]=useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { agent, setAgent, agents: agentOptions } = useAgent()
 
   // Load chat history when source changes
   useEffect(() => {
-    setMessages([])
+    let cancelled=false
+    setMessages([]);setSelection('');setScope('document')
     if (projectId && sourceId) {
       fetch(`/api/projects/${projectId}/sources/${sourceId}/chat`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { messages: [] })
         .then(data => {
-          if (data.messages?.length > 0) {
-            setMessages(data.messages.map((m: { role: string; content: string; usage?: AiUsage }) => ({
+          if (!cancelled&&data.messages?.length > 0) {
+            setMessages(data.messages.map((m: { role: string; content: string; usage?: AiUsage;references?:ChatReference[];contextScope?:ContextScope }) => ({
               role: m.role as 'user' | 'assistant',
-              content: m.content, usage: m.usage
+              content: m.content, usage: m.usage,references:m.references,contextScope:m.contextScope
             })))
           }
         })
         .catch(() => {})
     }
-  }, [sourceId, sessionId])
+    return()=>{cancelled=true}
+  }, [projectId, sourceId, sessionId])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -67,6 +73,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   // When selectedText changes, pre-fill the textarea with a quote prompt
   useEffect(() => {
     if (!selectedText || disabled) return
+    setSelection(selectedText);setScope('selection')
     const quoted = `> "${selectedText}"\n\n`
     setInput(quoted)
     textareaRef.current?.focus()
@@ -80,7 +87,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   }, [selectedText, disabled])
 
   const send = async () => {
-    if (!agent || !input.trim() || loading || disabled) return
+    if (!agent || !input.trim() || loading || disabled || (scope==='selection'&&!selection)) return
     const userMsg = input.trim()
     setInput('')
     setError('')
@@ -93,12 +100,13 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
+        credentials:'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMsg,
           agent,
           project_id: projectId ?? null,
-          source_id: sourceId ?? null,
+          source_id: sourceId ?? null,context_scope:scope,selected_text:scope==='selection'?selection:undefined,
         }),
       })
 
@@ -112,6 +120,8 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
       let buffer = ''
       let assistantText = ''
       let assistantUsage: AiUsage | undefined
+      let references:ChatReference[]=[]
+      let answerScope:ContextScope|undefined
 
       while (true) {
         const { done, value } = await reader.read()
@@ -129,6 +139,9 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               if (parsed.error) throw new Error(parsed.error)
               if (parsed.text) assistantText = parsed.text
               if (parsed.usage) assistantUsage = parsed.usage
+              if(parsed.references)references=parsed.references
+              if(parsed.contextScope)answerScope=parsed.contextScope
+              if(parsed.memoryWarning)setError(parsed.memoryWarning)
             } catch (e: any) {
               // ignore JSON parse errors for [DONE] and other non-JSON payloads
             }
@@ -136,11 +149,12 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         }
       }
 
-      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage }])
+      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage,references,contextScope:answerScope }])
+      setMemoryRefresh(v=>v+1)
       notifyAiChange()
     } catch (e: any) {
       setError(e.message || "出现错误")
-      setMessages(newHistory)
+      setMessages(messages);setInput(userMsg)
     } finally {
       setLoading(false)
       textareaRef.current?.focus()
@@ -155,7 +169,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden', background: 'var(--panel)' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height:'100%', minHeight:0, overflow: 'hidden', background: 'var(--panel)' }}>
       {/* Chat header */}
       <div style={{
         padding: '10px 16px',
@@ -170,12 +184,9 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
           {messages.length > 0 && (
             <button
               onClick={async () => {
-                setMessages([]); setError('')
-                try {
-                  if (projectId && sourceId) await chatApi.clearSourceChat(projectId, sourceId)
-                } catch { /* non-fatal */ }
+                try {if(projectId&&sourceId)await chatApi.clearSourceChat(projectId,sourceId);setMessages([]);setError('');setMemoryRefresh(v=>v+1)}catch(e){setError(e instanceof Error?e.message:'清空失败。')}
               }}
-              title="清空对话"
+              disabled={loading} title="清空对话及记忆"
               style={{
                 background: 'none', border: 'none', color: 'var(--muted)',
                 cursor: 'pointer', fontSize: 12, padding: '3px 8px',
@@ -189,6 +200,9 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         </div>
       </div>
 
+      <div className="chat-scope"><label>问答范围<select aria-label="问答范围" disabled={loading} value={scope} onChange={e=>setScope(e.target.value as ContextScope)}><option value="selection" disabled={!selection}>选中文字</option><option value="document">当前 PDF</option><option value="project">项目文献</option></select></label><small>{scope==='selection'?'仅提供选中文字':scope==='document'?'提供当前文档的片段与全文':'提供当前项目中的文献'}</small></div>
+      {scope==='selection'&&selection&&<details className="selection-preview"><summary>选中文字 · {selection.length} 字</summary><p>{selection}</p><button type="button" className="text-button" disabled={loading} onClick={()=>{setSelection('');setScope('document');onSelectedTextUsed?.()}}>取消选文</button></details>}
+      <ChatMemoryPanel projectId={projectId} sourceId={sourceId} refresh={memoryRefresh} disabled={loading}/>
       {/* Selection hint banner */}
       {selectedText && !disabled && (
         <div style={{
@@ -207,7 +221,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
             已选中文字，可编辑下方问题或按 Enter 发送
           </span>
           <button
-            onClick={() => { onSelectedTextUsed?.(); setInput('') }}
+            onClick={() => { onSelectedTextUsed?.(); setInput('');setSelection('');setScope('document') }}
             style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}
           >✕</button>
         </div>
@@ -239,7 +253,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               whiteSpace: msg.role === 'user' ? 'pre-wrap' : undefined,
             }}>
               {msg.role === 'assistant' ? (
-                <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown><AiUsageView usage={msg.usage}/></div>
+                <div><ChatAnswer content={msg.content} references={msg.references} contextScope={msg.contextScope} projectId={projectId} onReference={onReference}/><AiUsageView usage={msg.usage}/></div>
               ) : msg.content}
             </div>
           </div>
@@ -295,7 +309,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         />
         <button
           onClick={send}
-          disabled={!agent || disabled || loading || !input.trim()}
+          aria-label="发送问题" disabled={!agent || disabled || loading || !input.trim() || (scope==='selection'&&!selection)}
           style={{
             background: disabled || !input.trim() ? '#2a2a2a' : 'var(--accent)',
             color: disabled || !input.trim() ? '#6b7280' : '#fff',

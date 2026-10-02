@@ -46,7 +46,12 @@ export interface Passage {
   score: number
 }
 
+export interface ChatReference { id: number; sourceId: string; title: string; page: number; excerpt: string; canJump: boolean }
+export type ContextScope = 'selection' | 'document' | 'project'
 export interface AskResult {
+  references?: ChatReference[]
+  contextScope?: ContextScope
+  memoryWarning?: string
   usage?: import('./ai-settings.js').AiUsage
   answer: string
   project: Pick<Project, 'id' | 'title'>

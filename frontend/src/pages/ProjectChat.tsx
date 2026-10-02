@@ -4,14 +4,12 @@
  */
 import { useState, useEffect, useRef, type KeyboardEvent } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
+import ChatMemoryPanel from '../components/ChatMemoryPanel'
+import ChatAnswer from '../components/ChatAnswer'
 import { sourcesApi, collectionsApi, chatApi, type Source, type Collection } from '../lib/api'
 import { useAgent, notifyAiChange } from '../hooks/useAgent'
 import AiUsageView from '../components/AiUsageView'
-import type { AiUsage } from '../lib/api'
+import type { ChatReference, ContextScope, AiUsage } from '../lib/api'
 import AgentSelect from '../components/AgentSelect'
 
 /** Collection subtree (the collection id plus all descendant collection ids). */
@@ -28,6 +26,8 @@ function subtreeIds(collections: Collection[], rootId: string): Set<string> {
 }
 
 interface Message {
+  references?:ChatReference[]
+  contextScope?:ContextScope
   usage?: AiUsage
   role: 'user' | 'assistant'
   content: string
@@ -47,6 +47,7 @@ export default function ProjectChat() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [memoryRefresh,setMemoryRefresh]=useState(0)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { agent, setAgent, agents: agentOptions } = useAgent()
@@ -74,7 +75,7 @@ export default function ProjectChat() {
           role: m.role,
           content: m.content,
           sources_used: m.sources_used || [],
-          usage: m.usage,
+          usage: m.usage,references:m.references,contextScope:m.contextScope,
         })))
       }
     })
@@ -129,6 +130,8 @@ export default function ProjectChat() {
       let buffer = ''
       let assistantText = ''
       let assistantUsage: AiUsage | undefined
+      let references:ChatReference[]=[]
+      let contextScope:ContextScope|undefined
 
       while (true) {
         const { done, value } = await reader.read()
@@ -145,6 +148,9 @@ export default function ProjectChat() {
               if (parsed.error) throw new Error(parsed.error)
               if (parsed.text) assistantText = parsed.text
               if (parsed.usage) assistantUsage = parsed.usage
+              if(parsed.references)references=parsed.references
+              if(parsed.contextScope)contextScope=parsed.contextScope
+              if(parsed.memoryWarning)setError(parsed.memoryWarning)
             } catch { /* ignore parse errors */ }
           }
         }
@@ -154,12 +160,13 @@ export default function ProjectChat() {
         role: 'assistant',
         content: assistantText,
         sources_used: activeSources.map(s => s.id),
-        usage: assistantUsage,
+        usage: assistantUsage,references,contextScope,
       }])
+      setMemoryRefresh(v=>v+1)
       notifyAiChange()
     } catch (e: any) {
       setError(e.message || "出现错误")
-      setMessages(newHistory)
+      setMessages(messages);setInput(userMsg)
     } finally {
       setLoading(false)
       textareaRef.current?.focus()
@@ -235,14 +242,14 @@ export default function ProjectChat() {
             参考文献： {activeSources.length} source{activeSources.length !== 1 ? 's' : ''}
           </div>
           {messages.length > 0 && (
-            <button onClick={async () => {
-              setMessages([]); setError('')
-              try { if (projectId) await chatApi.clearProjectChat(projectId) } catch { /* non-fatal */ }
+            <button disabled={loading} title="清空对话及记忆" onClick={async () => {
+              try{if(projectId)await chatApi.clearProjectChat(projectId);setMessages([]);setError('');setMemoryRefresh(v=>v+1)}catch(e){setError(e instanceof Error?e.message:'清空失败。')}
             }} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', padding: '3px 8px' }}>清空</button>
           )}
           <AgentSelect agent={agent} setAgent={setAgent} agents={agentOptions} />
         </div>
 
+        <ChatMemoryPanel projectId={projectId} refresh={memoryRefresh} disabled={loading}/>
         {/* Messages */}
         <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {messages.length === 0 && !loading && (
@@ -266,7 +273,7 @@ export default function ProjectChat() {
                   whiteSpace: msg.role === 'user' ? 'pre-wrap' : undefined,
                 }}>
                   {msg.role === 'assistant'
-                    ? <div className="prose"><ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{msg.content}</ReactMarkdown></div>
+                    ? <ChatAnswer content={msg.content} references={msg.references} contextScope={msg.contextScope} projectId={projectId}/>
                     : msg.content
                   }
                 </div>

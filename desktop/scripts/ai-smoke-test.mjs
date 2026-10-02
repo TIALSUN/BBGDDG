@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 const desktop=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..'),repo=path.dirname(desktop),work=path.dirname(repo);
 const require=createRequire(path.join(repo,'package.json'));const {_electron}=require('playwright');
-const mock=http.createServer(async(req,res)=>{for await(const _ of req){}res.setHeader('content-type','application/json');res.end(JSON.stringify(req.url.endsWith('/models')?{data:[{id:'desktop-test-model'}]}:{model:'desktop-test-model',choices:[{message:{content:'桌面 AI 接口验证成功'}}],usage:{prompt_tokens:55,completion_tokens:11,total_tokens:66}}));});
+const mock=http.createServer(async(req,res)=>{let payload='';for await(const chunk of req)payload+=chunk;const summary=payload.includes('将以下对话');res.setHeader('content-type','application/json');res.end(JSON.stringify(req.url.endsWith('/models')?{data:[{id:'desktop-test-model'}]}:{model:'desktop-test-model',choices:[{message:{content:summary?'用户关注本地 PDF 阅读，需中文解释。':'桌面 AI 接口验证成功 [1]'}}],usage:{prompt_tokens:55,completion_tokens:11,total_tokens:66}}));});
 mock.listen(0,'127.0.0.1');await once(mock,'listening');
 const userData=fs.mkdtempSync(path.join(work,'desktop-ai-test-')),secret='synthetic-desktop-test-only';
 const executablePath=process.argv[2]||path.join(desktop,'node_modules/electron/dist/electron.exe');
@@ -27,6 +27,13 @@ try {
  await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);await page.locator('[data-pdf-page="1"] .textLayer span').first().waitFor();await page.getByRole('button',{name:'AI 对话',exact:true}).click();
  const textarea=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await textarea.fill('验证本地 PDF 问答');await textarea.press('Enter');await page.locator('.ai-message-usage').filter({hasText:'desktop-test-model'}).waitFor();
  assert.match(await page.locator('.ai-message-usage').innerText(),/55/);
+ await page.getByRole('button',{name:'[1]',exact:true}).click();await page.locator('[data-citation-highlight]').first().waitFor();
+ for(let turn=0;turn<6;turn++){const result=await api.post(origin+'/api/chat',{data:{project_id:project.id,source_id:source.id,message:'Test page '+turn,agent:'api-compatible',context_scope:'document'}});assert.equal(result.status(),200)}
+ const memoryUrl=`${origin}/api/projects/${project.id}/sources/${source.id}/memory`;
+ const memory=await(await api.get(memoryUrl)).json();assert.ok(memory.summary.includes('本地 PDF'));assert.ok(memory.throughId>0);
+ await page.reload();await page.getByRole('button',{name:'AI 对话',exact:true}).click();await page.getByRole('button',{name:/对话记忆/}).click();await page.waitForFunction(()=>document.querySelector('textarea[aria-label="记忆摘要"]')?.value.includes('本地 PDF'));
+ await page.screenshot({path:path.join(userData,'BBGDDG-长期记忆与引用.png')});
+ assert.equal((await api.put(memoryUrl,{data:{summary:memory.summary,enabled:false,revision:memory.revision}})).status(),200);
  const probeFile=path.join(userData,'env-probe.mjs');
  fs.writeFileSync(probeFile,"process.stdin.resume();console.log(JSON.stringify({result:JSON.stringify(Object.keys(process.env).filter(key=>/^BBGDDG_/i.test(key)))}))");
  assert.equal((await api.put(origin+'/api/ai/cli/claude',{data:{command:probeFile,model:''}})).status(),200);
@@ -41,8 +48,9 @@ try {
  const probe=await api.post(origin+'/api/ai/api/api-compatible/test');assert.equal(probe.status(),200);
  const history=await(await api.get(`${origin}/api/projects/${project.id}/sources/${source.id}/chat`)).json();assert.equal(history.messages[1].usage.totalTokens,66);
  assert.equal((await(await api.get(origin+'/api/agents')).json()).default,'api-compatible');
+ const restoredMemory=await(await api.get(`${origin}/api/projects/${project.id}/sources/${source.id}/memory`)).json();assert.equal(restoredMemory.summary,memory.summary);assert.ok(history.messages[1].references[0].canJump);assert.equal(history.messages[1].contextScope,'document');
  await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);
  await page.getByRole('button',{name:'展开顶部',exact:true}).waitFor();
  assert.equal((await(await api.get(origin+'/api/ui/preferences')).json()).readerTopCollapsed,true);
- console.log(JSON.stringify({nativeApp:'passed',providers:8,windowsKeyProtection:'passed',apiAndUsage:'passed',restartPersistence:'passed',aiEnvironmentIsolation:'passed',realProviderRequests:0}));
+ console.log(JSON.stringify({nativeApp:'passed',providers:8,windowsKeyProtection:'passed',apiAndUsage:'passed',restartPersistence:'passed',longTermMemory:'passed',citationNavigation:'passed',aiEnvironmentIsolation:'passed',realProviderRequests:0}));
 } finally {await electron?.close();await new Promise(resolve=>mock.close(resolve));}

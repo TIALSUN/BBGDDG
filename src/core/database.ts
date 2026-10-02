@@ -6,7 +6,7 @@ import type { Database as DatabaseType } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
 
-const CURRENT_SCHEMA = 8
+const CURRENT_SCHEMA = 9
 
 function columnExists(db: DatabaseType, table: string, column: string): boolean {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(row => row.name === column)
@@ -171,6 +171,18 @@ function migrate(db: DatabaseType): void {
   if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=8').get()) {
     if (!columnExists(db, 'chat_messages', 'usage_json')) db.exec('ALTER TABLE chat_messages ADD COLUMN usage_json TEXT')
     db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (8, datetime('now'))").run()
+  }
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=9').get()) {
+    db.exec(`CREATE TABLE IF NOT EXISTS chat_memories (
+      project_id TEXT NOT NULL, scope_id TEXT NOT NULL, source_id TEXT,
+      summary TEXT NOT NULL DEFAULT '', enabled INTEGER NOT NULL DEFAULT 1,
+      through_id INTEGER NOT NULL DEFAULT 0, revision INTEGER NOT NULL DEFAULT 0, updated_at TEXT NOT NULL,
+      PRIMARY KEY(project_id,scope_id), FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY(source_id) REFERENCES sources(id) ON DELETE CASCADE
+    )`)
+    if (!columnExists(db,'chat_messages','references_json')) db.exec('ALTER TABLE chat_messages ADD COLUMN references_json TEXT')
+    if (!columnExists(db,'chat_messages','context_scope')) db.exec('ALTER TABLE chat_messages ADD COLUMN context_scope TEXT')
+    db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (9, datetime('now'))").run()
   }
 }
 
