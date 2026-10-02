@@ -3,11 +3,12 @@
 :root {
   --bg: #0f0f0f;
   --panel: #1a1a1a;
-  --border: #2a2a2a;
+  --border: #30333d;
   --accent: #6366f1;
   --accent-hover: #4f46e5;
   --text: #e5e7eb;
-  --muted: #9ca3af;
+  --muted: #a1a9ba;
+  color-scheme: dark;
 }
 
 * {
@@ -18,7 +19,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
   height: 100vh;
   overflow: hidden;
 }
@@ -79,3 +80,42 @@ body {
   display: inline-block;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Shared layout refinements. Keep PDF canvases and invisible text layers intact. */
+button, input, textarea, select { font-family: inherit; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible,
+[role="tab"]:focus-visible, .reader-divider:focus-visible { outline: 2px solid #a5b4fc; outline-offset: 3px; }
+button:not(:disabled):hover { filter: brightness(1.12); }
+button:disabled { opacity: .6; }
+.projects-home { height: 100%; overflow-y: auto; flex-shrink: 0; }
+.reader-tabs > button { flex: 1; }
+.reader-divider:hover { box-shadow: 0 0 0 1px var(--accent); }
+.pdf-toolbar { box-shadow: 0 2px 8px #0000001a; }
+.reader-document [data-testid="pdf-scroll-area"] { background: #101216; }
+.reader-document canvas { box-shadow: 0 4px 24px #00000040; }
+.reader-assistant { background: var(--panel); }
+.library-heading { font-family: 'Source Han Serif SC', 'Noto Serif CJK SC', 'Songti SC', SimSun, serif; letter-spacing: .02em; }
+.projects-home > div:first-child { height: 58px !important; padding: 0 28px !important; }
+.projects-home > div:nth-child(2) { padding-top: 40px !important; }
+.reader-shell textarea { line-height: 1.7; }
+.reader-shell .prose { max-width: 78ch; line-height: 1.8; }
+.pdf-toolbar select { min-height: 30px; }
+.reader-header button { min-height: 32px; }
+@media (prefers-reduced-motion: reduce) {
+  * { scroll-behavior: auto !important; transition-duration: 0s !important; }
+}
+@media (max-width: 900px) {
+  .reader-header { padding: 10px 12px !important; gap: 8px !important; flex-wrap: wrap; }
+  .reader-header > div { min-width: 160px !important; }
+  .reader-body:not(.reading-only) { flex-direction: column; }
+  .reader-body:not(.reading-only) .reader-document { width: 100% !important; height: 58%; flex-shrink: 0; }
+  .reader-body:not(.reading-only) .reader-divider { display: none; }
+  .reader-assistant { min-width: 0 !important; min-height: 0; border-top: 1px solid var(--border); }
+  .reading-only .reader-document { height: 100%; }
+  .project-sidebar { width: 176px !important; }
+}
+@media (max-width: 600px) {
+  .project-sidebar { width: 138px !important; }
+  .projects-home > div:nth-child(2) { padding: 24px 16px !important; }
+  .reader-header > div { order: 3; flex-basis: 100% !important; }
+}

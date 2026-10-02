@@ -117,7 +117,7 @@ export default function ProjectChat() {
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.detail || 'Chat request failed')
+        throw new Error(data.detail || "对话请求失败")
       }
 
       const reader = res.body!.getReader()
@@ -150,7 +150,7 @@ export default function ProjectChat() {
         sources_used: activeSources.map(s => s.id),
       }])
     } catch (e: any) {
-      setError(e.message || 'Something went wrong')
+      setError(e.message || "出现错误")
       setMessages(newHistory)
     } finally {
       setLoading(false)
@@ -167,14 +167,14 @@ export default function ProjectChat() {
       {/* Sources panel */}
       <div style={{ width: 240, flexShrink: 0, background: '#111', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)' }}>
-          <button onClick={() => navigate(`/projects/${projectId}`)} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 11, padding: 0, marginBottom: 10, display: 'block' }}>← Project</button>
-          <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1 }}>Sources in context</div>
+          <button onClick={() => navigate(`/projects/${projectId}`)} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: 0, marginBottom: 10, display: 'block' }}>← 项目</button>
+          <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1 }}>参与对话的文献</div>
         </div>
 
         <div style={{ flex: 1, overflow: 'auto' }}>
           {sources.length === 0 && (
-            <div style={{ padding: 16, color: '#4b5563', fontSize: 12, textAlign: 'center' }}>
-              No sources in this project yet.
+            <div style={{ padding: 16, color: 'var(--muted)', fontSize: 12, textAlign: 'center' }}>
+              此项目暂无文献。
             </div>
           )}
           {sources.map(s => {
@@ -184,9 +184,9 @@ export default function ProjectChat() {
                 <div style={{ fontSize: 14, flexShrink: 0 }}>📄</div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, color: active ? '#e5e7eb' : '#4b5563', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: active ? 600 : 400 }}>
-                    {s.title || s.url || 'Untitled'}
+                    {s.title || s.url || "未命名"}
                   </div>
-                  {s.pages > 0 && <div style={{ fontSize: 10, color: '#4b5563' }}>{s.pages}p</div>}
+                  {s.pages > 0 && <div style={{ fontSize: 10, color: 'var(--muted)' }}>{s.pages} 页</div>}
                 </div>
                 {/* Toggle */}
                 <div
@@ -208,8 +208,8 @@ export default function ProjectChat() {
           })}
         </div>
 
-        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: '#4b5563' }}>
-          {activeSourceIds.size} of {sources.length} sources active
+        <div style={{ padding: '10px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--muted)' }}>
+          已启用 {activeSourceIds.size} / {sources.length} 篇文献
         </div>
       </div>
 
@@ -217,20 +217,20 @@ export default function ProjectChat() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ padding: '0 16px', height: 44, background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          <div style={{ flex: 1, fontWeight: 700, fontSize: 14, color: '#fff' }}>💬 Project Chat</div>
+          <div style={{ flex: 1, fontWeight: 700, fontSize: 14, color: '#fff' }}>💬 项目对话</div>
           {scopeName && (
             <span style={{ background: '#1e1b4b', border: '1px solid #312e81', color: '#a5b4fc', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600 }}>
               📁 {scopeName}
             </span>
           )}
-          <div style={{ fontSize: 11, color: '#6b7280' }}>
-            Context: {activeSources.length} source{activeSources.length !== 1 ? 's' : ''}
+          <div style={{ fontSize: 11, color: 'var(--muted)' }}>
+            参考文献： {activeSources.length} source{activeSources.length !== 1 ? 's' : ''}
           </div>
           {messages.length > 0 && (
             <button onClick={async () => {
               setMessages([]); setError('')
               try { if (projectId) await chatApi.clearProjectChat(projectId) } catch { /* non-fatal */ }
-            }} style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: 12, cursor: 'pointer', padding: '3px 8px' }}>Clear</button>
+            }} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer', padding: '3px 8px' }}>清空</button>
           )}
           <AgentSelect agent={agent} setAgent={setAgent} agents={agentOptions} />
         </div>
@@ -238,10 +238,10 @@ export default function ProjectChat() {
         {/* Messages */}
         <div style={{ flex: 1, overflow: 'auto', padding: '16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
           {messages.length === 0 && !loading && (
-            <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563', fontSize: 14 }}>
+            <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)', fontSize: 14 }}>
               {activeSources.length === 0
-                ? 'Enable at least one source to start chatting'
-                : `Ask anything across ${activeSources.length} source${activeSources.length !== 1 ? 's' : ''}…`
+                ? "请至少启用一篇文献以开始对话"
+                : `可以针对这 ${activeSources.length} 篇文献提问…`
               }
             </div>
           )}
@@ -272,7 +272,7 @@ export default function ProjectChat() {
                           background: '#1e1b4b', border: '1px solid #312e81', color: '#818cf8',
                           borderRadius: 4, padding: '1px 7px', fontSize: 10,
                         }}>
-                          📄 {(src.title || src.url || 'Source').slice(0, 30)}
+                          📄 {(src.title || src.url || "文献").slice(0, 30)}
                         </span>
                       ) : null
                     })}
@@ -284,8 +284,8 @@ export default function ProjectChat() {
 
           {loading && (
             <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
-              <div style={{ padding: '12px 16px', background: '#252525', borderRadius: '16px 16px 16px 4px', display: 'flex', alignItems: 'center', gap: 8, color: '#6b7280', fontSize: 13 }}>
-                <span className="spinner" /> Thinking across {activeSources.length} source{activeSources.length !== 1 ? 's' : ''}…
+              <div style={{ padding: '12px 16px', background: '#252525', borderRadius: '16px 16px 16px 4px', display: 'flex', alignItems: 'center', gap: 8, color: 'var(--muted)', fontSize: 13 }}>
+                <span className="spinner" /> 正在结合 {activeSources.length} 篇文献思考…
               </div>
             </div>
           )}
@@ -305,7 +305,7 @@ export default function ProjectChat() {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={loading || activeSources.length === 0}
-            placeholder={activeSources.length === 0 ? 'Enable at least one source…' : `Ask across ${activeSources.length} source${activeSources.length !== 1 ? 's' : ''}… (Enter to send, Shift+Enter for newline)`}
+            placeholder={activeSources.length === 0 ? "请至少启用一篇文献…" : `针对 ${activeSources.length} 篇文献提问…（Enter 发送，Shift+Enter 换行）`}
             rows={3}
             style={{
               flex: 1, background: '#0f0f0f', border: '1px solid var(--border)',

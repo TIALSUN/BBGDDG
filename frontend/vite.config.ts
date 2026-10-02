@@ -10,6 +10,7 @@ import tailwindcss from '@tailwindcss/vite'
 // pdfjs-dist version bundled by react-pdf, regardless of npm hoisting.
 const pdfjsRoot = path.dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'))
 const pdfjsAssetGroups = [
+  { urlPrefix: '/pdfjs/cmaps/', sourceDir: path.join(pdfjsRoot, 'cmaps'), outputDir: 'pdfjs/cmaps' },
   { urlPrefix: '/pdfjs/wasm/', sourceDir: path.join(pdfjsRoot, 'wasm'), outputDir: 'pdfjs/wasm' },
   { urlPrefix: '/pdfjs/standard_fonts/', sourceDir: path.join(pdfjsRoot, 'standard_fonts'), outputDir: 'pdfjs/standard_fonts' },
 ] as const

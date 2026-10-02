@@ -8,14 +8,14 @@ interface NewProjectModalProps {
   onCreate: (project: Project) => void
 }
 
-function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
+export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleCreate = async () => {
-    if (!title.trim()) { setError('Project name is required'); return }
+    if (!title.trim()) { setError("请输入项目名称"); return }
     setLoading(true)
     setError('')
     try {
@@ -37,18 +37,18 @@ function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
         background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16,
         padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
       }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ color: '#fff', fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>Create a new project</h2>
-        <p style={{ color: '#6b7280', fontSize: 12, margin: '0 0 20px' }}>
-          A project is your research workspace — add PDFs, chat, take notes.
+        <h2 style={{ color: '#fff', fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>创建新项目</h2>
+        <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 20px' }}>
+          项目是你的研究工作区，可以添加 PDF、对话和记录笔记。
         </p>
 
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Project name</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>项目名称</div>
         <input
           autoFocus
           value={title}
           onChange={e => setTitle(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleCreate()}
-          placeholder="e.g. LLM Scaling Laws"
+          placeholder="例如：大语言模型缩放定律"
           style={{
             width: '100%', background: '#0f0f0f', border: '1px solid var(--border)',
             borderRadius: 8, padding: '10px 14px', color: '#e5e7eb', fontSize: 13,
@@ -57,11 +57,11 @@ function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
           }}
         />
 
-        <div style={{ fontSize: 11, fontWeight: 600, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>Description (optional)</div>
+        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>描述（可选）</div>
         <input
           value={description}
           onChange={e => setDescription(e.target.value)}
-          placeholder="What are you researching?"
+          placeholder="你正在研究什么？"
           style={{
             width: '100%', background: '#0f0f0f', border: '1px solid var(--border)',
             borderRadius: 8, padding: '10px 14px', color: '#e5e7eb', fontSize: 13,
@@ -74,7 +74,7 @@ function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}>
-            Cancel
+            取消
           </button>
           <button
             onClick={handleCreate}
@@ -85,7 +85,7 @@ function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
               fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
             }}
           >
-            {loading ? 'Creating…' : 'Create Project'}
+            {loading ? "正在创建…" : "创建项目"}
           </button>
         </div>
       </div>
@@ -122,16 +122,16 @@ function ProjectCard({ project, onDelete }: ProjectCardProps) {
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {project.source_count > 0 && <span style={pillStyle}><b>{project.source_count}</b> source{project.source_count !== 1 ? 's' : ''}</span>}
-        {project.note_count > 0 && <span style={pillStyle}><b>{project.note_count}</b> note{project.note_count !== 1 ? 's' : ''}</span>}
+        {project.source_count > 0 && <span style={pillStyle}><b>{project.source_count}</b> 篇文献</span>}
+        {project.note_count > 0 && <span style={pillStyle}><b>{project.note_count}</b> 篇笔记</span>}
         <span style={pillStyle}>{timeAgo(project.accessed_at)}</span>
       </div>
       {hovered && (
         <button
-          onClick={e => { e.stopPropagation(); if (confirm('Delete this project and all its sources?')) onDelete(project.id) }}
+          onClick={e => { e.stopPropagation(); if (confirm("确定删除此项目及其中的所有文献吗？")) onDelete(project.id) }}
           style={{
             position: 'absolute', top: 12, right: 12,
-            background: 'none', border: 'none', color: '#4b5563', cursor: 'pointer', fontSize: 14, padding: 4,
+            background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14, padding: 4,
           }}
         >✕</button>
       )}
@@ -180,7 +180,7 @@ export default function ProjectsPage({ user }: { user: User }) {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
+    <div className="projects-home" style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ background: '#111', borderBottom: '1px solid var(--border)', padding: '0 24px', height: 48, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -189,11 +189,11 @@ export default function ProjectsPage({ user }: { user: User }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           {user.picture && <img src={user.picture} style={{ width: 28, height: 28, borderRadius: '50%' }} alt="" />}
-          <span style={{ fontSize: 12, color: '#6b7280' }}>{user.email}</span>
+          <span style={{ fontSize: 12, color: 'var(--muted)' }}>{user.email}</span>
           <button
             onClick={async () => { await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }); location.reload() }}
-            style={{ background: 'none', border: 'none', color: '#6b7280', fontSize: 12, cursor: 'pointer' }}
-          >Sign out</button>
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 12, cursor: 'pointer' }}
+          >退出登录</button>
         </div>
       </div>
 
@@ -201,29 +201,29 @@ export default function ProjectsPage({ user }: { user: User }) {
       <div style={{ flex: 1, padding: '32px 40px', maxWidth: 1100, margin: '0 auto', width: '100%' }}>
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 20 }}>
           <div>
-            <h1 style={{ fontSize: 24, fontWeight: 800, color: '#fff', margin: 0 }}>My Projects</h1>
-            <p style={{ color: '#6b7280', fontSize: 13, margin: '4px 0 0' }}>Your research workspaces</p>
+            <h1 className="library-heading" style={{ fontSize: 30, fontWeight: 700, color: '#fff', margin: 0 }}>我的文献工作台</h1>
+            <p style={{ color: 'var(--muted)', fontSize: 13, margin: '8px 0 0', lineHeight: 1.6 }}>按项目整理论文，在阅读中提问和记录笔记。</p>
           </div>
           <button
             onClick={() => setShowModal(true)}
             style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}
-          >＋ New Project</button>
+          >＋ 新建项目</button>
         </div>
 
-        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, color: '#4b5563', marginBottom: 24 }}>
+        <div style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, color: 'var(--muted)', marginBottom: 24 }}>
           <span>🔍</span>
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search projects…"
+            placeholder="搜索项目…"
             style={{ flex: 1, background: 'none', border: 'none', color: '#e5e7eb', fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
           />
         </div>
 
         {loading ? (
-          <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}>
+          <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div className="spinner" style={{ margin: '0 auto 12px' }} />
-            Loading projects…
+            正在加载项目…
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
@@ -233,20 +233,20 @@ export default function ProjectsPage({ user }: { user: User }) {
               style={{
                 border: '2px dashed #333', borderRadius: 12, display: 'flex',
                 flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                minHeight: 160, color: '#4b5563', gap: 8, cursor: 'pointer',
+                minHeight: 160, color: 'var(--muted)', gap: 8, cursor: 'pointer',
               }}
             >
               <div style={{ fontSize: 28 }}>＋</div>
-              <div style={{ fontSize: 13, fontWeight: 600 }}>New Project</div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>新建项目</div>
             </div>
           </div>
         )}
 
         {!loading && projects.length === 0 && (
-          <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}>
+          <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>📂</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: '#6b7280' }}>No projects yet</div>
-            <div style={{ fontSize: 13, marginTop: 8 }}>Create a project to start researching</div>
+            <div style={{ fontSize: 16, fontWeight: 600, color: 'var(--muted)' }}>暂无项目</div>
+            <div style={{ fontSize: 13, marginTop: 8 }}>点击“新建项目”，然后添加本地 PDF 或论文链接。</div>
           </div>
         )}
       </div>

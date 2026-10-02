@@ -43,13 +43,13 @@ export default function NoteEditor() {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
       {/* Topbar */}
       <div style={{ height: 44, background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0 }}>
-        <button onClick={() => navigate(`/projects/${projectId}`)} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>← Project</button>
+        <button onClick={() => navigate(`/projects/${projectId}`)} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>← 项目</button>
         <div style={{ flex: 1 }} />
         <span style={{ fontSize: 11, color: saving ? '#6366f1' : saved ? '#4b5563' : '#f59e0b' }}>
-          {saving ? 'Saving…' : saved ? 'Saved' : 'Unsaved'}
+          {saving ? "正在保存…" : saved ? "已保存" : "未保存"}
         </span>
         <button onClick={() => setPreview(p => !p)} style={{ background: preview ? '#1e1b4b' : 'var(--panel)', border: '1px solid var(--border)', color: preview ? '#a5b4fc' : '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
-          {preview ? '✏️ Edit' : '👁 Preview'}
+          {preview ? "✏️ 编辑" : "👁 预览"}
         </button>
       </div>
 
@@ -58,7 +58,7 @@ export default function NoteEditor() {
           <input
             value={title}
             onChange={e => updateTitle(e.target.value)}
-            placeholder="Note title…"
+            placeholder="笔记标题…"
             style={{ width: '100%', background: 'none', border: 'none', color: '#fff', fontSize: 16, fontWeight: 700, outline: 'none', fontFamily: 'inherit' }}
           />
         </div>
@@ -67,13 +67,13 @@ export default function NoteEditor() {
           <textarea
             value={content}
             onChange={e => updateContent(e.target.value)}
-            placeholder="Write your notes here… (Markdown supported)"
+            placeholder="在这里记录笔记…（支持 Markdown）"
             style={{ flex: 1, background: 'var(--bg)', border: 'none', color: '#e5e7eb', padding: '16px 20px', fontSize: 13, resize: 'none', fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.7, outline: 'none' }}
           />
         ) : (
           <div style={{ flex: 1, overflow: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
             <div className="prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{content || '*Nothing here yet…*'}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{content || "*暂无内容…*"}</ReactMarkdown>
             </div>
           </div>
         )}

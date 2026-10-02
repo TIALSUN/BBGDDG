@@ -19,7 +19,7 @@ interface User { email: string; name: string; picture: string }
 type RightPanel = 'chat' | 'notes' | 'related'
 
 // ── Inline source note editor ─────────────────────────────────────────────────
-function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId: string }) {
+export function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId: string }) {
   const navigate = useNavigate()
   const [notes, setNotes] = useState<Note[]>([])
   const [activeNote, setActiveNote] = useState<Note | null>(null)
@@ -57,8 +57,8 @@ function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId:
   }
 
   const handleNew = async () => {
-    const { id } = await notesApi.create(projectId, { title: 'Untitled Note', content: '', source_id: sourceId })
-    const n: Note = { id, project_id: projectId, source_id: sourceId, title: 'Untitled Note', content: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+    const { id } = await notesApi.create(projectId, { title: "未命名笔记", content: '', source_id: sourceId })
+    const n: Note = { id, project_id: projectId, source_id: sourceId, title: "未命名笔记", content: '', created_at: new Date().toISOString(), updated_at: new Date().toISOString() }
     setNotes(prev => [n, ...prev])
     openNote(n)
   }
@@ -77,13 +77,13 @@ function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId:
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--panel)' }}>
         <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-          <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db' }}>Notes</span>
-          <button onClick={handleNew} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>＋ New</button>
+          <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db' }}>笔记</span>
+          <button onClick={handleNew} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 10px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>＋ 新建</button>
         </div>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, color: '#4b5563' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 10, color: 'var(--muted)' }}>
           <div style={{ fontSize: 32 }}>📝</div>
-          <div style={{ fontSize: 13 }}>No notes yet for this source</div>
-          <button onClick={handleNew} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', marginTop: 4 }}>Create a note</button>
+          <div style={{ fontSize: 13 }}>此文献暂无笔记</div>
+          <button onClick={handleNew} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer', marginTop: 4 }}>创建笔记</button>
         </div>
       </div>
     )
@@ -102,16 +102,16 @@ function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId:
             {notes.map(n => <option key={n.id} value={n.id}>{n.title}</option>)}
           </select>
         )}
-        {notes.length <= 1 && <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeNote?.title || 'Notes'}</span>}
+        {notes.length <= 1 && <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: '#d1d5db', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{activeNote?.title || "笔记"}</span>}
         <span style={{ fontSize: 10, color: saving ? '#6366f1' : saved ? '#4b5563' : '#f59e0b' }}>
           {saving ? '●' : saved ? '✓' : '●'}
         </span>
         <button onClick={() => setPreview(p => !p)} style={{ background: preview ? '#1e1b4b' : 'none', border: '1px solid var(--border)', color: preview ? '#a5b4fc' : '#6b7280', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>
           {preview ? '✏️' : '👁'}
         </button>
-        {activeNote && <button onClick={() => handleDelete(activeNote.id)} style={{ background: 'none', border: 'none', color: '#4b5563', fontSize: 13, cursor: 'pointer', padding: 2 }}>✕</button>}
-        <button onClick={handleNew} style={{ background: 'none', border: '1px solid var(--border)', color: '#6b7280', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>＋</button>
-        <button onClick={() => navigate(`/projects/${projectId}/notes/${activeNote?.id}`)} title="Open full editor" style={{ background: 'none', border: '1px solid var(--border)', color: '#6b7280', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>⤢</button>
+        {activeNote && <button onClick={() => handleDelete(activeNote.id)} style={{ background: 'none', border: 'none', color: 'var(--muted)', fontSize: 13, cursor: 'pointer', padding: 2 }}>✕</button>}
+        <button onClick={handleNew} style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>＋</button>
+        <button onClick={() => navigate(`/projects/${projectId}/notes/${activeNote?.id}`)} title="打开完整编辑器" style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>⤢</button>
       </div>
 
       {/* Title */}
@@ -129,13 +129,13 @@ function SourceNotePanel({ projectId, sourceId }: { projectId: string; sourceId:
           <textarea
             value={content}
             onChange={e => { setContent(e.target.value); scheduleSave(title, e.target.value) }}
-            placeholder="Write notes… (Markdown supported)"
+            placeholder="记录笔记…（支持 Markdown）"
             style={{ flex: 1, background: 'var(--bg)', border: 'none', color: '#e5e7eb', padding: '12px 16px', fontSize: 12, resize: 'none', fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.7, outline: 'none' }}
           />
         ) : (
           <div style={{ flex: 1, overflow: 'auto', padding: '12px 16px', background: 'var(--panel)' }}>
             <div className="prose" style={{ fontSize: 13 }}>
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{content || '*Nothing here yet…*'}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{content || "*暂无内容…*"}</ReactMarkdown>
             </div>
           </div>
         )}
@@ -155,7 +155,8 @@ export default function App({ user }: { user: User }) {
   const [pdfLabel, setPdfLabel] = useState('')
   const [selectedText, setSelectedText] = useState('')
   const [annotations, setAnnotations] = useState<Annotation[]>([])
-  const [splitPct, setSplitPct] = useState(55)
+  const [splitPct, setSplitPct] = useState(62)
+  const [readingOnly, setReadingOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [retrying, setRetrying] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -300,9 +301,9 @@ export default function App({ user }: { user: User }) {
 
   if (loading) {
     return (
-      <div style={{ height: '100vh', background: '#0f0f0f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#6b7280' }}>
+      <div style={{ height: '100vh', background: '#0f0f0f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: 'var(--muted)' }}>
         <span className="spinner" />
-        Loading source…
+        正在加载文献…
       </div>
     )
   }
@@ -312,7 +313,7 @@ export default function App({ user }: { user: User }) {
       <div style={{ height: '100vh', background: '#0f0f0f', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#f87171' }}>
         ⚠️ {error}
         <button onClick={() => navigate(`/projects/${projectId}`)} style={{ marginTop: 8, background: '#1a1a1a', border: '1px solid #2a2a2a', color: '#9ca3af', borderRadius: 8, padding: '8px 16px', cursor: 'pointer', fontSize: 13 }}>
-          ← Back to project
+          ← 返回项目
         </button>
       </div>
     )
@@ -331,31 +332,36 @@ export default function App({ user }: { user: User }) {
   )
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
+    <div className="reader-shell" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
       {/* Header */}
-      <div style={{
-        padding: '0 16px', height: 44, borderBottom: '1px solid var(--border)',
+      <div className="reader-header" style={{
+        padding: '0 20px', minHeight: 60, borderBottom: '1px solid var(--border)',
         background: 'var(--panel)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
       }}>
         <button
           onClick={() => navigate(`/projects/${projectId}`)}
           style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer', whiteSpace: 'nowrap' }}
         >
-          ← Project
+          ← 项目
         </button>
 
-        <div style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', textAlign: 'center' }}>
-          {pdfLabel}{pdfPages > 0 ? ` · ${pdfPages}p` : ''}
+        <div title={pdfLabel} style={{ fontSize: 14, fontWeight: 600, color: '#e5e7eb', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {pdfLabel}{pdfPages > 0 ? ` · ${pdfPages} 页` : ''}
           {!hasPdfText && source && (
             <span style={{ marginLeft: 8, background: '#7f1d1d', color: '#fca5a5', borderRadius: 4, padding: '1px 6px', fontSize: 10, fontWeight: 600 }}>
-              ⚠ No text extracted
+              ⚠ 未提取到文字
             </span>
           )}
         </div>
 
+        <button className="focus-reading-button" aria-pressed={readingOnly} onClick={() => setReadingOnly(value => !value)}
+          style={{ background: readingOnly ? 'var(--accent)' : 'var(--bg)', color: '#e5e7eb', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', fontSize: 12, whiteSpace: 'nowrap', cursor: 'pointer' }}>
+          {readingOnly ? '显示对话 / 笔记' : '专注阅读'}
+        </button>
+
         <button
           onClick={async () => {
-            if (!confirm('Remove this source from the project?')) return
+            if (!confirm("确定从项目中移除此文献吗？")) return
             setDeleting(true)
             try {
               await sourcesApi.delete(projectId!, sourceId!)
@@ -363,10 +369,10 @@ export default function App({ user }: { user: User }) {
             } catch { setDeleting(false) }
           }}
           disabled={deleting}
-          title="Remove source"
-          style={{ background: 'none', border: '1px solid #3a3a3a', color: '#6b7280', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
+          title="移除文献"
+          style={{ background: 'none', border: '1px solid #3a3a3a', color: 'var(--muted)', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}
         >
-          {deleting ? '…' : '🗑 Remove'}
+          {deleting ? '…' : "🗑 移除"}
         </button>
 
         {user.picture && <img src={user.picture} alt="" style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0 }} />}
@@ -377,22 +383,22 @@ export default function App({ user }: { user: User }) {
         <div style={{ background: '#1c1917', borderBottom: '1px solid #44403c', padding: '8px 16px', display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#d6d3d1', flexShrink: 0 }}>
           <span>⚠️</span>
           <span style={{ flex: 1 }}>
-            No text was extracted from this source. The PDF may be scanned, protected, or failed to load.
+            未能从此文献提取文字。PDF 可能是扫描件、受到保护，或加载失败。
           </span>
           <button
             onClick={handleRetry}
             disabled={retrying}
             style={{ background: '#292524', border: '1px solid #57534e', color: '#d6d3d1', borderRadius: 6, padding: '4px 12px', fontSize: 11, cursor: retrying ? 'not-allowed' : 'pointer', flexShrink: 0 }}
           >
-            {retrying ? <><span className="spinner" style={{ width: 10, height: 10, marginRight: 6 }} />Retrying…</> : '↺ Retry'}
+            {retrying ? <><span className="spinner" style={{ width: 10, height: 10, marginRight: 6 }} />正在重试…</> : "↺ 重试"}
           </button>
         </div>
       )}
 
       {/* Body */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div className={`reader-body${readingOnly ? ' reading-only' : ''}`} style={{ display: 'flex', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* PDF panel */}
-        <div style={{ width: `${splitPct}%`, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <div className="reader-document" style={{ width: readingOnly ? '100%' : `${splitPct}%`, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           <PdfViewer
             key={viewerUrl}
             url={viewerUrl}
@@ -408,21 +414,24 @@ export default function App({ user }: { user: User }) {
         </div>
 
         {/* Drag handle */}
-        <div
+        {!readingOnly && <div
+          className="reader-divider"
+          role="separator" aria-label="调整阅读区宽度" aria-orientation="vertical" aria-valuemin={30} aria-valuemax={75} aria-valuenow={Math.round(splitPct)} tabIndex={0}
+          onKeyDown={event => { if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') { event.preventDefault(); setSplitPct(value => Math.max(30, Math.min(75, value + (event.key === 'ArrowRight' ? 2 : -2)))) } }}
           ref={splitRef}
           onMouseDown={() => { dragging.current = true; setIsResizing(true); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none' }}
           style={{ width: 5, flexShrink: 0, background: 'var(--border)', cursor: 'col-resize', userSelect: 'none' }}
           onMouseEnter={e => (e.currentTarget.style.background = '#4a4a4a')}
           onMouseLeave={e => { if (!dragging.current) e.currentTarget.style.background = 'var(--border)' }}
-        />
+        />}
 
         {/* Right panel */}
-        <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        {!readingOnly && <div className="reader-assistant" style={{ flex: 1, minWidth: 320, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {/* Tab bar */}
-          <div style={{ height: 36, borderBottom: '1px solid var(--border)', background: 'var(--panel)', display: 'flex', alignItems: 'stretch', flexShrink: 0, paddingLeft: 4 }}>
-            {tabBtn('chat', '💬 Chat')}
-            {tabBtn('notes', '📝 Notes')}
-            {tabBtn('related', '🔗 Related')}
+          <div className="reader-tabs" style={{ height: 46, borderBottom: '1px solid var(--border)', background: 'var(--panel)', display: 'flex', alignItems: 'stretch', flexShrink: 0, paddingLeft: 8 }}>
+            {tabBtn('chat', "💬 对话")}
+            {tabBtn('notes', "📝 笔记")}
+            {tabBtn('related', "🔗 相关论文")}
           </div>
 
           {rightPanel === 'chat' && (
@@ -442,7 +451,7 @@ export default function App({ user }: { user: User }) {
           {rightPanel === 'related' && projectId && sourceId && source && (
             <RelatedPanel projectId={projectId} sourceId={sourceId} sourceUrl={source.url || ''} />
           )}
-        </div>
+        </div>}
       </div>
     </div>
   )

@@ -1,0 +1,11 @@
+PDFPal desktop application
+Original project: https://github.com/andrepaim/pdfpal
+Original package license: MIT, as declared by upstream package.json.
+Local modifications: Chinese interface, reading workspace, annotations, local PDF access and desktop packaging.
+
+This distribution includes Electron (MIT), Node.js (MIT and bundled third-party licenses), and npm dependencies.
+Electron and Chromium license notices are included beside PDFPal.exe.
+Node.js licensing information: https://github.com/nodejs/node/blob/v24.19.0/LICENSE
+Backend dependency licenses are included in resources/backend/node_modules in their respective packages.
+
+No personal PDF documents, local databases, account credentials or AI agent executables are included in the distribution.

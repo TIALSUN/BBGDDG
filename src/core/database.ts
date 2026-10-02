@@ -6,7 +6,7 @@ import type { Database as DatabaseType } from 'better-sqlite3'
 import type { PdfpalConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
 
-const CURRENT_SCHEMA = 6
+const CURRENT_SCHEMA = 7
 
 function columnExists(db: DatabaseType, table: string, column: string): boolean {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(row => row.name === column)
@@ -163,6 +163,10 @@ function migrate(db: DatabaseType): void {
     if (!columnExists(db, 'sources', 'last_page_read'))
       db.exec('ALTER TABLE sources ADD COLUMN last_page_read INTEGER NOT NULL DEFAULT 1')
     db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (6, datetime('now'))").run()
+  }
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=7').get()) {
+    if (!columnExists(db, 'annotations', 'note')) db.exec("ALTER TABLE annotations ADD COLUMN note TEXT NOT NULL DEFAULT ''")
+    db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (7, datetime('now'))").run()
   }
 }
 

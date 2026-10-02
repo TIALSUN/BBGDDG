@@ -40,9 +40,7 @@ export class SourceService {
   }
 
   async add(projectSelector: string, location: string, title?: string, collectionSelector?: string): Promise<Source> {
-    const project = this.projects.resolve(projectSelector)
-    const collectionId = collectionSelector ? this.collections.resolve(project.id, collectionSelector).id : null
-    const id = randomUUID()
+    this.projects.resolve(projectSelector)
     const isUrl = /^https?:\/\//i.test(location)
     let bytes: Buffer
     let url: string | null = null
@@ -58,13 +56,21 @@ export class SourceService {
       originalLocation = absolute
       if (bytes.subarray(0, 4).toString() !== '%PDF') throw new PdfpalError('NOT_A_PDF', `File is not a PDF: ${location}`, 2)
     }
+    return this.addPdf(projectSelector, bytes, title, collectionSelector, originalLocation, url)
+  }
+
+  async addPdf(projectSelector: string, bytes: Buffer, title?: string, collectionSelector?: string, originalLocation = 'upload.pdf', url: string | null = null): Promise<Source> {
+    const project = this.projects.resolve(projectSelector)
+    const collectionId = collectionSelector ? this.collections.resolve(project.id, collectionSelector).id : null
+    if (bytes.subarray(0, 4).toString() !== '%PDF') throw new PdfpalError('NOT_A_PDF', '请选择有效的 PDF 文件。', 2)
+    const id = randomUUID()
     const extracted = await extractPdf(bytes)
     const stored = storePdf(bytes, this.config.filesDir, id)
     const timestamp = now()
     // Prefer a clean catalogue title for arXiv/DOI links; the PDF's own
     // first-line heuristic often bleeds authors and affiliations into the title.
-    const catalogueTitle = isUrl && !title?.trim() ? await titleFromUrl(location, this.config.semanticScholarApiKey) : null
-    const sourceTitle = title?.trim() || catalogueTitle || extracted.title || (isUrl ? new URL(location).pathname.split('/').filter(Boolean).at(-1) : path.basename(location)) || 'Untitled Source'
+    const catalogueTitle = url && !title?.trim() ? await titleFromUrl(originalLocation, this.config.semanticScholarApiKey) : null
+    const sourceTitle = title?.trim() || catalogueTitle || extracted.title || (url ? new URL(originalLocation).pathname.split('/').filter(Boolean).at(-1) : path.basename(originalLocation)) || 'Untitled Source'
     const source: Source = {
       id, project_id: project.id, type: 'pdf', url, title: sourceTitle, pdf_text: extracted.text,
       pages: extracted.pages, last_page_read: 1, created_at: timestamp, accessed_at: timestamp, original_location: originalLocation,
@@ -138,6 +144,12 @@ export class SourceService {
     let total = 0
     for (const source of targets) {
       let text = source.pdf_text ?? ''
+      const localPdf = this.pdfPath(source)
+      if (!refetch && localPdf) {
+        const extracted = await extractPdf(fs.readFileSync(localPdf))
+        text = extracted.text
+        this.db.prepare('UPDATE sources SET pdf_text=?, pages=? WHERE id=?').run(text, extracted.pages, source.id)
+      }
       if (refetch) {
         const location = source.url ?? source.original_location
         if (!location) throw new PdfpalError('SOURCE_UNAVAILABLE', `No retrievable location for ${source.title ?? source.id}`)

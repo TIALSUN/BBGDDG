@@ -1,0 +1,48 @@
+{
+  "name": "pdfpal-desktop",
+  "version": "2.0.1",
+  "description": "PDFPal 中文桌面版 · 本地 PDF 阅读与研究",
+  "author": "PDFPal",
+  "license": "MIT",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-builder --win nsis portable --x64"
+  },
+  "devDependencies": {
+    "electron": "44.5.1",
+    "electron-builder": "26.0.12"
+  },
+  "build": {
+    "appId": "local.pdfpal.desktop",
+    "productName": "PDFPal",
+    "asar": true,
+    "npmRebuild": false,
+    "afterPack": "after-pack.cjs",
+    "directories": { "output": "../../../outputs", "buildResources": "assets" },
+    "files": ["main.cjs", "loading.html", "assets/icon.png", "package.json"],
+    "extraResources": [
+      { "from": "runtime/backend", "to": "backend", "filter": ["**/*", "!**/test/**", "!**/tests/**", "!**/*.map"] },
+      { "from": "runtime/node.exe", "to": "node.exe" },
+      { "from": "THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt" }
+    ],
+    "win": {
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false,
+      "artifactName": "PDFPal-${version}-安装版.${ext}"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "PDFPal",
+      "deleteAppDataOnUninstall": false,
+      "runAfterFinish": false,
+      "installerLanguages": ["zh_CN"],
+      "language": "2052"
+    },
+    "portable": { "artifactName": "PDFPal-${version}-便携版.${ext}" }
+  }
+}

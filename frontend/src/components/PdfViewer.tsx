@@ -3,6 +3,7 @@ import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import type { Annotation } from '../lib/api'
+import {ColorPicker} from './WorkspaceUI'
 
 // Bundle the worker from the same pdfjs-dist version used by react-pdf.
 // package.json pins pdfjs-dist to react-pdf's exact version (no "^"): pdfjs
@@ -17,12 +18,15 @@ interface Props {
   url: string
   pages: number
   initialPage?: number
+  pageRequest?: {page:number;key:number}
   isResizing?: boolean
   onPageChange?: (page: number) => void
   onTextSelected?: (text: string) => void
   annotations?: Annotation[]
   onHighlightCreate?: (data: { page_number: number; x1: number; y1: number; x2: number; y2: number; rects: PageRect[]; text: string; color: string }) => void
   onHighlightClick?: (annotation: Annotation) => void
+  onHighlightDelete?: (id:string)=>Promise<void>
+  onNoteCreate?: Props['onHighlightCreate']
 }
 
 const COLOR_MAP: Record<string, string> = {
@@ -84,16 +88,24 @@ const PDF_OPTIONS = {
   // the production bundle (see vite.config.ts).
   wasmUrl: '/pdfjs/wasm/',
   standardFontDataUrl: '/pdfjs/standard_fonts/',
+  cMapUrl: '/pdfjs/cmaps/',
+  cMapPacked: true,
 }
 
 export default function PdfViewer({
-  url, initialPage = 1, isResizing, onPageChange, onTextSelected,
-  annotations, onHighlightCreate, onHighlightClick,
+  url, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
+  annotations, onHighlightCreate, onNoteCreate, onHighlightClick, onHighlightDelete,
 }: Props) {
   const requestedPage = normalizePage(initialPage)
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(requestedPage)
   const [restored, setRestored] = useState(false)
+  const [highlightColor,setHighlightColor]=useState('yellow')
+  const [pageDraft,setPageDraft]=useState('')
+  const [activeHighlight,setActiveHighlight]=useState<Annotation|null>(null)
+  const [removingHighlight,setRemovingHighlight]=useState(false)
+  const [actionError,setActionError]=useState('')
+  useEffect(()=>{const escape=(event:globalThis.KeyboardEvent)=>{if(event.key==='Escape'){setBubble(null);setActiveHighlight(null);window.getSelection()?.removeAllRanges()}};document.addEventListener('keydown',escape);return()=>document.removeEventListener('keydown',escape)},[])
   const [scale, setScale] = useState(1.0)
   const [fitWidth, setFitWidth] = useState(true)
   const [containerWidth, setContainerWidth] = useState(800)
@@ -112,7 +124,8 @@ export default function PdfViewer({
       const el = scrollRef.current
       if (!el) return
       // clientWidth excludes scrollbar; subtract 2px for border/rounding
-      const w = el.clientWidth - 2
+      const padding = getComputedStyle(el)
+      const w = el.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight) - 2
       if (w > 100) setContainerWidth(w)
     }
     // Measure after paint
@@ -136,7 +149,8 @@ export default function PdfViewer({
       const timer = setTimeout(() => {
         const el = scrollRef.current
         if (!el) return
-        const w = el.clientWidth - 2
+        const padding = getComputedStyle(el)
+        const w = el.clientWidth - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight) - 2
         if (w > 100) setContainerWidth(w)
       }, 200)
       return () => clearTimeout(timer)
@@ -150,7 +164,7 @@ export default function PdfViewer({
         const selection = window.getSelection()
         if (!selection || selection.isCollapsed) return
         const text = selection.toString().trim()
-        if (!text || text.length < 3) return
+        if (!text) return
         const container = containerRef.current
         if (!container) return
         const anchor = selection.anchorNode
@@ -178,10 +192,11 @@ export default function PdfViewer({
     window.getSelection()?.removeAllRanges()
   }
 
-  const handleHighlight = () => {
+  const handleHighlight = (withNote=false) => {
     if (!bubble?.coords) return
     const { page, bbox, rects } = bubble.coords
-    onHighlightCreate?.({ page_number: page, x1: bbox.x1, y1: bbox.y1, x2: bbox.x2, y2: bbox.y2, rects, text: bubble.text, color: 'yellow' })
+    const create = withNote ? onNoteCreate : onHighlightCreate
+    create?.({ page_number: page, x1: bbox.x1, y1: bbox.y1, x2: bbox.x2, y2: bbox.y2, rects, text: bubble.text, color: highlightColor })
     setBubble(null)
     window.getSelection()?.removeAllRanges()
   }
@@ -196,6 +211,14 @@ export default function PdfViewer({
   }
   const setFit = () => setFitWidth(true)
   const setZoomLevel = (z: number) => { setFitWidth(false); setScale(z) }
+  function jump(page:number){
+    const scroll=scrollRef.current
+    if(!scroll||!numPages)return
+    const next=Math.max(1,Math.min(numPages,page))
+    const target=scroll.querySelector<HTMLElement>(`[data-pdf-page="${next}"]`)
+    if(target){scroll.scrollTop+=target.getBoundingClientRect().top-scroll.getBoundingClientRect().top-16;setCurrentPage(next);currentPageRef.current=next;onPageChange?.(next)}
+  }
+  useEffect(()=>{if(pageRequest)jump(pageRequest.page)},[pageRequest?.key,numPages])
 
   // Always pass width in fit mode; pass scale only in manual zoom mode
   const pageWidth = fitWidth ? containerWidth || undefined : undefined
@@ -253,11 +276,11 @@ export default function PdfViewer({
     return (
       <div style={{
         flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: '#4b5563', fontSize: 15, flexDirection: 'column', gap: 12, height: '100%',
+        color: 'var(--muted)', fontSize: 15, flexDirection: 'column', gap: 12, height: '100%',
         background: 'var(--bg)',
       }}>
         <div style={{ fontSize: 48 }}>📄</div>
-        <div>Paste a PDF URL or open a local file to get started</div>
+        <div>粘贴 PDF 链接或打开本地文件以开始阅读</div>
       </div>
     )
   }
@@ -265,26 +288,29 @@ export default function PdfViewer({
   return (
     <div ref={containerRef} style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
       {/* Toolbar */}
-      <div style={{
-        display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px',
+      <div className="pdf-toolbar" style={{
+        display: 'flex', alignItems: 'center', gap: 8, minHeight: 46, padding: '8px 16px',
         background: 'var(--panel)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, flexWrap: 'wrap',
       }}>
-        <button onClick={zoomOut} title="Zoom out" style={btnStyle}>−</button>
+        <button onClick={zoomOut} title="缩小" style={btnStyle}>−</button>
         <select
           value={fitWidth ? 'fit' : String(scale)}
           onChange={e => e.target.value === 'fit' ? setFit() : setZoomLevel(parseFloat(e.target.value))}
           style={{ background: '#0f0f0f', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 13, cursor: 'pointer' }}
         >
-          <option value="fit">Fit width</option>
+          <option value="fit">适应宽度</option>
           {ZOOM_LEVELS.map(z => (
             <option key={z} value={z}>{Math.round(z * 100)}%</option>
           ))}
         </select>
-        <button onClick={zoomIn} title="Zoom in" style={btnStyle}>+</button>
+        <button onClick={zoomIn} title="放大" style={btnStyle}>+</button>
+        <form className="page-jump" onSubmit={event=>{event.preventDefault();const page=Number(pageDraft);if(Number.isInteger(page)&&page>0)jump(page);setPageDraft('')}}>
+          <input aria-label="跳转页码" name="pdfPage" inputMode="numeric" type="number" min={1} max={numPages||1} placeholder={String(currentPage)} value={pageDraft} onChange={event=>setPageDraft(event.target.value)}/><button type="submit">跳转</button>
+        </form>
         {numPages > 0 && (
-          <span data-testid="page-progress" aria-live="polite" style={{ marginLeft: 8, fontSize: 12, color: '#6b7280' }}>
-            Page {Math.min(currentPage, numPages)} of {numPages}
+          <span data-testid="page-progress" aria-live="polite" style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}>
+            第 {Math.min(currentPage, numPages)} 页 / 共 {numPages} 页
           </span>
         )}
       </div>
@@ -296,7 +322,7 @@ export default function PdfViewer({
           file={url}
           options={PDF_OPTIONS}
           onLoadSuccess={({ numPages }) => setNumPages(numPages)}
-          onLoadError={err => console.error('PDF load error:', err)}
+          onLoadError={err => console.error("PDF 加载失败：", err)}
           loading={<LoadingPage />}
           error={<ErrorPage />}
         >
@@ -310,34 +336,38 @@ export default function PdfViewer({
                 pageWidth={pageWidth}
                 pageScale={pageScale}
                 annotations={pageAnnotations}
-                onHighlightClick={onHighlightClick}
+                onHighlightClick={annotation=>{setActiveHighlight(annotation);setActionError('');onHighlightClick?.(annotation)}}
               />
             )
           })}
         </Document>
       </div>
 
+      {activeHighlight&&onHighlightDelete&&<div className="highlight-actions" role="group" aria-label="高亮操作"><span title={activeHighlight.text}>{activeHighlight.text.slice(0,24)}</span><button className="secondary" disabled={removingHighlight} onClick={async()=>{if(activeHighlight.note&&!confirm('取消高亮也会删除对应的文字注释，继续吗？'))return;setRemovingHighlight(true);try{await onHighlightDelete(activeHighlight.id);setActiveHighlight(null)}catch(e){setActionError(e instanceof Error?e.message:'取消失败，请重试。')}finally{setRemovingHighlight(false)}}}>{removingHighlight?'正在取消…':'取消高亮'}</button><button className="text-button" aria-label="关闭高亮操作" onClick={()=>setActiveHighlight(null)}>×</button>{actionError&&<span role="alert">{actionError}</span>}</div>}
       {/* Selection bubble */}
       {bubble && (
         <div
           data-ask-bubble="1"
           style={{
             position: 'absolute',
-            left: Math.min(bubble.x, (containerRef.current?.clientWidth ?? 400) - 260),
+            left: Math.max(4,Math.min(bubble.x, (containerRef.current?.clientWidth ?? 400) - 360)),
             top: Math.max(bubble.y - 48, 8),
-            display: 'flex', gap: 6, zIndex: 9999, userSelect: 'none',
+            display: 'flex', gap: 6, zIndex: 9999, userSelect: 'none', flexWrap:'wrap', maxWidth:'calc(100% - 8px)', padding:8, background:'#20232b',border:'1px solid var(--border)',borderRadius:10,
           }}
         >
           {bubble.coords && (
+            <ColorPicker value={highlightColor} onChange={setHighlightColor}/>
+          )}
+          {bubble.coords && (
             <button
-              onClick={handleHighlight}
+              onClick={()=>handleHighlight()}
               style={{
                 background: '#854d0e', color: '#fef08a',
                 border: 'none', padding: '6px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
                 cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
               }}
             >
-              🖊 Highlight
+              高亮
             </button>
           )}
           <button
@@ -348,8 +378,9 @@ export default function PdfViewer({
               cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.4)', whiteSpace: 'nowrap',
             }}
           >
-            💬 Ask
+            提问
           </button>
+          {bubble.coords && onNoteCreate && <button className="secondary" onClick={()=>handleHighlight(true)}>添加注释</button>}
         </div>
       )}
     </div>
@@ -374,6 +405,7 @@ const PAGE_ASPECT_RATIO = 1.53
 function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighlightClick }: LazyPdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1)
+  const [aspectRatio,setAspectRatio]=useState(PAGE_ASPECT_RATIO)
 
   useEffect(() => {
     if (shouldRender || !pageRef.current) return
@@ -391,28 +423,29 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
   }, [shouldRender])
 
   const placeholderWidth = pageWidth ?? 600 * (pageScale ?? 1)
-  const placeholderHeight = placeholderWidth * PAGE_ASPECT_RATIO
+  const placeholderHeight = placeholderWidth * aspectRatio
 
   return (
     <div
       ref={pageRef}
       data-pdf-page={pageNumber}
-      aria-label={`Page ${pageNumber}`}
+      aria-label={`第 ${pageNumber} 页`}
       style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, position: 'relative', minHeight: placeholderHeight }}
     >
-      <div style={{ position: 'relative' }}>
+      <div data-highlight-layer="true" style={{ position: 'relative',alignSelf:'flex-start' }}>
         {shouldRender ? (
           <Page
             pageNumber={pageNumber}
             width={pageWidth}
             scale={pageScale}
+            onLoadSuccess={page=>{const viewport=page.getViewport({scale:1});setAspectRatio(viewport.height/viewport.width)}}
             renderTextLayer={true}
             renderAnnotationLayer={true}
             loading={<LoadingPage />}
             error={<ErrorPage />}
           />
         ) : (
-          <div style={{ width: placeholderWidth, height: placeholderHeight, background: 'white' }} aria-label={`Page ${pageNumber}`} />
+          <div style={{ width: placeholderWidth, height: placeholderHeight, background: 'white' }} aria-label={`第 ${pageNumber} 页`} />
         )}
         {annotations.map(ann =>
           // rects gives one box per selected line; annotations from before
@@ -421,7 +454,10 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
             <div
               key={`${ann.id}-${i}`}
               onClick={() => onHighlightClick?.(ann)}
-              title={ann.text}
+              title={ann.note ? `${ann.text}\n注释：${ann.note}` : ann.text}
+              data-annotation-id={ann.id}
+              role="button" tabIndex={0} aria-label={`查看第 ${ann.page_number} 页的高亮`}
+              onKeyDown={event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();onHighlightClick?.(ann)}}}
               style={{
                 position: 'absolute',
                 left:   `${r.x1 * 100}%`,
@@ -451,7 +487,7 @@ const btnStyle: React.CSSProperties = {
 
 function LoadingPage() {
   return (
-    <div style={{ width: 600, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4b5563' }}>
+    <div style={{ width: 600, height: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--muted)' }}>
       <span className="spinner" />
     </div>
   )
@@ -460,7 +496,7 @@ function LoadingPage() {
 function ErrorPage() {
   return (
     <div style={{ width: 600, padding: 16, color: '#f87171', background: '#2d1515', borderRadius: 8, textAlign: 'center' }}>
-      ⚠️ Failed to render page
+      ⚠️ 页面渲染失败
     </div>
   )
 }

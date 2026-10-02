@@ -6,7 +6,7 @@ export default function LoginPage() {
     }}>
       <img src="/logo.png" alt="pdfpal" style={{ width: 120, height: 120 }} />
       <div style={{ fontSize: 28, fontWeight: 700, color: '#e5e7eb', letterSpacing: '-1px' }}>pdfpal</div>
-      <div style={{ color: '#6b7280', fontSize: 15 }}>Your AI-powered reading buddy</div>
+      <div style={{ color: 'var(--muted)', fontSize: 15 }}>你的 AI 阅读助手</div>
       <a
         href="/auth/google"
         style={{
@@ -26,7 +26,7 @@ export default function LoginPage() {
           <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
           <path fill="#EA4335" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
         </svg>
-        Sign in with Google
+        使用 Google 登录
       </a>
     </div>
   )

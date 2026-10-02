@@ -27,7 +27,7 @@ function SourceRow({ source, projectId, drag }: {
   }
   const remove = async (e: React.MouseEvent) => {
     e.stopPropagation()
-    if (!confirm('Remove this source?')) return
+    if (!confirm("确定移除此文献吗？")) return
     await sourcesApi.delete(projectId, source.id)
     window.dispatchEvent(new CustomEvent('pdfpal:sources-changed'))
   }
@@ -42,7 +42,7 @@ function SourceRow({ source, projectId, drag }: {
       onMouseEnter={e => (e.currentTarget.style.borderColor = '#3a3a3a')}
       onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
     >
-      <div style={{ fontSize: 16, flexShrink: 0, color: '#6b7280' }}>⠿</div>
+      <div style={{ fontSize: 16, flexShrink: 0, color: 'var(--muted)' }}>⠿</div>
       <div style={{ fontSize: 16, flexShrink: 0 }}>📄</div>
       <div style={{ flex: 1, minWidth: 0 }}>
         {editing ? (
@@ -52,21 +52,21 @@ function SourceRow({ source, projectId, drag }: {
             style={{ width: '100%', background: '#0f0f0f', border: '1px solid var(--accent)', borderRadius: 6, padding: '3px 8px', color: '#fff', fontSize: 13, fontWeight: 600, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box' }} />
         ) : (
           <>
-            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source.title || source.url || 'Untitled'}</div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{source.title || source.url || "未命名"}</div>
             {source.excerpt && (
-              <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{source.excerpt}</div>
+              <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{source.excerpt}</div>
             )}
           </>
         )}
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
         {source.pages > 0
-          ? <span style={{ background: '#212121', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#6b7280' }}>{source.pages}p</span>
-          : <span style={{ background: '#7f1d1d', border: '1px solid #991b1b', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#fca5a5' }}>⚠ Failed</span>}
-        <button onClick={e => { e.stopPropagation(); setTitle(source.title || source.url || ''); setEditing(true) }} title="Rename"
-          style={{ background: 'none', border: '1px solid #3a3a3a', color: '#6b7280', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6 }}>✏️</button>
-        <button onClick={remove} title="Remove source"
-          style={{ background: 'none', border: '1px solid #3a3a3a', color: '#6b7280', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6 }}
+          ? <span style={{ background: '#212121', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: 'var(--muted)' }}>{source.pages} 页</span>
+          : <span style={{ background: '#7f1d1d', border: '1px solid #991b1b', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#fca5a5' }}>⚠ 失败</span>}
+        <button onClick={e => { e.stopPropagation(); setTitle(source.title || source.url || ''); setEditing(true) }} title="重命名"
+          style={{ background: 'none', border: '1px solid #3a3a3a', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6 }}>✏️</button>
+        <button onClick={remove} title="移除文献"
+          style={{ background: 'none', border: '1px solid #3a3a3a', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6 }}
           onMouseEnter={e => { e.currentTarget.style.color = '#f87171'; e.currentTarget.style.borderColor = '#f87171' }}
           onMouseLeave={e => { e.currentTarget.style.color = '#6b7280'; e.currentTarget.style.borderColor = '#3a3a3a' }}>✕</button>
       </div>
@@ -74,7 +74,7 @@ function SourceRow({ source, projectId, drag }: {
   )
 }
 
-function SourcesTab({ projectId }: { projectId: string }) {
+export function SourcesTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [sources, setSources] = useState<Source[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
@@ -134,11 +134,11 @@ function SourcesTab({ projectId }: { projectId: string }) {
       if (item.kind === 'source') await sourcesApi.setCollection(projectId, item.id, targetCollectionId)
       else if (item.id !== targetCollectionId) await collectionsApi.move(projectId, item.id, targetCollectionId)
       await reload()
-    } catch (e: any) { alert(e.message || 'Could not move item') }
+    } catch (e: any) { alert(e.message || "无法移动项目") }
   }
 
   const addCollection = async (parentId: string | null) => {
-    const name = prompt('New collection name', 'New Collection')
+    const name = prompt("新文献集名称", "新文献集")
     if (!name?.trim()) return
     const created = await collectionsApi.create(projectId, name.trim(), parentId)
     if (parentId) setExpanded(prev => new Set(prev).add(parentId))
@@ -153,7 +153,7 @@ function SourcesTab({ projectId }: { projectId: string }) {
   }
 
   const deleteCollection = async (c: Collection) => {
-    if (!confirm(`Delete collection "${c.name}"? Its sources will become unfiled (not deleted).`)) return
+    if (!confirm(`确定删除文献集“${c.name}”吗？其中的文献将移至未归类，不会被删除。`)) return
     await collectionsApi.delete(projectId, c.id)
     await reload()
   }
@@ -180,7 +180,7 @@ function SourcesTab({ projectId }: { projectId: string }) {
           onDrop={e => { e.preventDefault(); e.stopPropagation(); drop(c.id) }}
           style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', background: '#141414', border: '1px solid var(--border)', borderRadius: 8, marginBottom: 6, cursor: 'grab', ...dropZoneStyle(c.id) }}
         >
-          <span onClick={() => toggle(c.id)} style={{ cursor: 'pointer', color: '#6b7280', fontSize: 11, width: 12, flexShrink: 0 }}>{isOpen ? '▾' : '▸'}</span>
+          <span onClick={() => toggle(c.id)} style={{ cursor: 'pointer', color: 'var(--muted)', fontSize: 11, width: 12, flexShrink: 0 }}>{isOpen ? '▾' : '▸'}</span>
           <span style={{ fontSize: 15, flexShrink: 0 }}>{isOpen ? '📂' : '📁'}</span>
           {editingId === c.id ? (
             <input autoFocus value={editingName} onChange={e => setEditingName(e.target.value)} onBlur={() => commitRename(c.id)}
@@ -191,17 +191,17 @@ function SourcesTab({ projectId }: { projectId: string }) {
             <span onClick={() => toggle(c.id)} style={{ flex: 1, fontSize: 13, fontWeight: 700, color: '#e5e7eb', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.name}</span>
           )}
           <span style={{ background: 'var(--border)', borderRadius: 10, padding: '1px 7px', fontSize: 10, color: '#9ca3af', flexShrink: 0 }}>{total}</span>
-          <button title="Ask this collection" onClick={e => { e.stopPropagation(); navigate(`/projects/${projectId}/chat?collection=${c.id}`) }}
+          <button title="向此文献集提问" onClick={e => { e.stopPropagation(); navigate(`/projects/${projectId}/chat?collection=${c.id}`) }}
             style={collBtn}>💬</button>
-          <button title="New sub-collection" onClick={e => { e.stopPropagation(); addCollection(c.id) }} style={collBtn}>＋</button>
-          <button title="Rename" onClick={e => { e.stopPropagation(); setEditingId(c.id); setEditingName(c.name) }} style={collBtn}>✏️</button>
-          <button title="Delete collection" onClick={e => { e.stopPropagation(); deleteCollection(c) }} style={collBtn}>🗑</button>
+          <button title="新建子文献集" onClick={e => { e.stopPropagation(); addCollection(c.id) }} style={collBtn}>＋</button>
+          <button title="重命名" onClick={e => { e.stopPropagation(); setEditingId(c.id); setEditingName(c.name) }} style={collBtn}>✏️</button>
+          <button title="删除文献集" onClick={e => { e.stopPropagation(); deleteCollection(c) }} style={collBtn}>🗑</button>
         </div>
         {isOpen && (
           <div style={{ marginLeft: 16, display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 6 }}>
             {kids.map(child => renderCollection(child, depth + 1))}
             {rows.map(s => <SourceRow key={s.id} source={s} projectId={projectId} drag={dragHandlers} />)}
-            {kids.length === 0 && rows.length === 0 && <div style={{ fontSize: 11, color: '#4b5563', padding: '4px 8px' }}>Empty — drag sources here</div>}
+            {kids.length === 0 && rows.length === 0 && <div style={{ fontSize: 11, color: 'var(--muted)', padding: '4px 8px' }}>暂无内容，可将文献拖到这里</div>}
           </div>
         )}
       </div>
@@ -214,23 +214,23 @@ function SourcesTab({ projectId }: { projectId: string }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--panel)', flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Sources</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>文献</span>
         <div style={{ display: 'flex', gap: 8 }}>
           {collections.length > 0 && (
             <button onClick={toggleAll} style={{ background: 'none', color: '#9ca3af', border: '1px solid var(--border)', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-              {allExpanded ? '▾ Collapse All' : '▸ Expand All'}
+              {allExpanded ? "▾ 全部折叠" : "▸ 全部展开"}
             </button>
           )}
-          <button onClick={() => addCollection(null)} style={{ background: 'none', color: '#a5b4fc', border: '1px solid #312e81', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📁 New Collection</button>
-          <button onClick={() => setShowAdd(true)} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>＋ Add Source</button>
+          <button onClick={() => addCollection(null)} style={{ background: 'none', color: '#a5b4fc', border: '1px solid #312e81', borderRadius: 8, padding: '6px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>📁 新建文献集</button>
+          <button onClick={() => setShowAdd(true)} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>＋ 添加文献</button>
         </div>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
-        {loading && <div style={{ color: '#4b5563', textAlign: 'center', paddingTop: 40 }}><div className="spinner" style={{ margin: '0 auto 12px' }} /></div>}
+        {loading && <div style={{ color: 'var(--muted)', textAlign: 'center', paddingTop: 40 }}><div className="spinner" style={{ margin: '0 auto 12px' }} /></div>}
         {!loading && sources.length === 0 && collections.length === 0 && (
-          <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}>
+          <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
-            <div>No sources yet. Add a PDF or create a collection to organize your papers.</div>
+            <div>暂无文献。添加 PDF 或创建文献集来整理论文。</div>
           </div>
         )}
 
@@ -245,8 +245,8 @@ function SourcesTab({ projectId }: { projectId: string }) {
             style={{ marginTop: collections.length ? 8 : 0, padding: 8, ...dropZoneStyle('root') }}
           >
             {collections.length > 0 && (
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 1, padding: '2px 4px 8px' }}>
-                Unfiled{unfiled.length ? ` · ${unfiled.length}` : ''}
+              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 1, padding: '2px 4px 8px' }}>
+                未归类{unfiled.length ? ` · ${unfiled.length}` : ''}
               </div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -255,8 +255,8 @@ function SourcesTab({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        <div onClick={() => setShowAdd(true)} style={{ border: '2px dashed #333', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: '#4b5563', cursor: 'pointer', padding: '14px 0', fontSize: 12, marginTop: 6 }}>
-          <span>🔍</span><span>Search or paste a URL to add a source…</span>
+        <div onClick={() => setShowAdd(true)} style={{ border: '2px dashed #333', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)', cursor: 'pointer', padding: '14px 0', fontSize: 12, marginTop: 6 }}>
+          <span>📄</span><span>添加本地 PDF、搜索论文或粘贴链接…</span>
         </div>
       </div>
       {showAdd && <SearchPaperModal projectId={projectId} onClose={() => { setShowAdd(false); reload() }} onAdded={s => { setShowAdd(false); setSources(prev => [s, ...prev]) }} />}
@@ -264,10 +264,10 @@ function SourcesTab({ projectId }: { projectId: string }) {
   )
 }
 
-const collBtn: React.CSSProperties = { background: 'none', border: '1px solid #3a3a3a', color: '#6b7280', cursor: 'pointer', fontSize: 11, padding: '2px 6px', borderRadius: 6, flexShrink: 0 }
+const collBtn: React.CSSProperties = { background: 'none', border: '1px solid #3a3a3a', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: '2px 6px', borderRadius: 6, flexShrink: 0 }
 
 // ── Notes tab ─────────────────────────────────────────────────────────────────
-function NotesTab({ projectId }: { projectId: string }) {
+export function NotesTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [notes, setNotes] = useState<Note[]>([])
   const [loading, setLoading] = useState(true)
@@ -275,25 +275,25 @@ function NotesTab({ projectId }: { projectId: string }) {
   useEffect(() => { notesApi.list(projectId).then(setNotes).finally(() => setLoading(false)) }, [projectId])
 
   const handleCreate = async () => {
-    const { id } = await notesApi.create(projectId, { title: 'Untitled Note', content: '' })
+    const { id } = await notesApi.create(projectId, { title: "未命名笔记", content: '' })
     navigate(`/projects/${projectId}/notes/${id}`)
   }
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--panel)', flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Notes</span>
-        <button onClick={handleCreate} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>＋ New Note</button>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>笔记</span>
+        <button onClick={handleCreate} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>＋ 新建笔记</button>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {loading ? <div style={{ textAlign: 'center', paddingTop: 40, color: '#4b5563' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
-          : notes.length === 0 ? <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}><div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>No notes yet.</div>
+        {loading ? <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+          : notes.length === 0 ? <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}><div style={{ fontSize: 36, marginBottom: 12 }}>📝</div>暂无笔记。</div>
           : notes.map(n => (
             <div key={n.id} onClick={() => navigate(`/projects/${projectId}/notes/${n.id}`)}
               style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', cursor: 'pointer' }}>
               <div style={{ fontWeight: 600, color: '#fff', fontSize: 13, marginBottom: 4 }}>{n.title}</div>
-              <div style={{ color: '#6b7280', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.preview || 'Empty note'}</div>
-              <div style={{ color: '#4b5563', fontSize: 10, marginTop: 6 }}>{timeAgo(n.updated_at)}</div>
+              <div style={{ color: 'var(--muted)', fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{n.preview || "空笔记"}</div>
+              <div style={{ color: 'var(--muted)', fontSize: 10, marginTop: 6 }}>{timeAgo(n.updated_at)}</div>
             </div>
           ))
         }
@@ -303,7 +303,7 @@ function NotesTab({ projectId }: { projectId: string }) {
 }
 
 // ── Chats tab ─────────────────────────────────────────────────────────────────
-function ChatsTab({ projectId }: { projectId: string }) {
+export function ChatsTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [sessions, setSessions] = useState<ChatSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -313,15 +313,15 @@ function ChatsTab({ projectId }: { projectId: string }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Chat History</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>对话历史</span>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
         {loading ? (
-          <div style={{ textAlign: 'center', paddingTop: 40, color: '#4b5563' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+          <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
         ) : sessions.length === 0 ? (
-          <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}>
+          <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>💬</div>
-            <div>No chats yet. Start a conversation from a source or Project Chat.</div>
+            <div>暂无对话。可以打开一篇文献或使用项目对话。</div>
           </div>
         ) : sessions.map(session => {
           const isProjectChat = !session.source_id
@@ -338,18 +338,18 @@ function ChatsTab({ projectId }: { projectId: string }) {
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                 <span style={{ fontSize: 14 }}>{isProjectChat ? '💬' : '📄'}</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: '#fff', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {isProjectChat ? 'Project Chat' : (session.source_title || 'Source Chat')}
+                  {isProjectChat ? "项目对话" : (session.source_title || "文献对话")}
                 </span>
-                <span style={{ fontSize: 10, color: '#4b5563', flexShrink: 0 }}>
+                <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>
                   {session.message_count} msg{session.message_count !== 1 ? 's' : ''}
                 </span>
               </div>
               {session.first_message && (
-                <div style={{ fontSize: 11, color: '#6b7280', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 22 }}>
+                <div style={{ fontSize: 11, color: 'var(--muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', paddingLeft: 22 }}>
                   {session.first_message}
                 </div>
               )}
-              <div style={{ fontSize: 10, color: '#4b5563', marginTop: 4, paddingLeft: 22 }}>
+              <div style={{ fontSize: 10, color: 'var(--muted)', marginTop: 4, paddingLeft: 22 }}>
                 {timeAgo(session.accessed_at)}
               </div>
             </div>
@@ -361,7 +361,7 @@ function ChatsTab({ projectId }: { projectId: string }) {
 }
 
 // ── Search tab: full-text search across the project's indexed sources ─────────
-function SearchTab({ projectId }: { projectId: string }) {
+export function SearchTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<SearchPassage[] | null>(null)
@@ -380,17 +380,17 @@ function SearchTab({ projectId }: { projectId: string }) {
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0, display: 'flex', gap: 8 }}>
         <input
           autoFocus value={query} onChange={e => setQuery(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') run() }}
-          placeholder="Search across all source text in this project…"
+          placeholder="搜索此项目中的所有文献全文…"
           style={{ flex: 1, background: '#0f0f0f', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: '#e5e7eb', fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
         />
         <button onClick={run} disabled={searching || query.trim().length < 2}
           style={{ background: searching || query.trim().length < 2 ? '#2a2a2a' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '0 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-          {searching ? <span className="spinner" style={{ width: 14, height: 14 }} /> : 'Search'}
+          {searching ? <span className="spinner" style={{ width: 14, height: 14 }} /> : "搜索"}
         </button>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {results === null && <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563', fontSize: 13 }}>Type at least two characters and press Enter.</div>}
-        {results !== null && results.length === 0 && <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563', fontSize: 13 }}>No matching passages.</div>}
+        {results === null && <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)', fontSize: 13 }}>请输入至少两个字符，然后按 Enter。</div>}
+        {results !== null && results.length === 0 && <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)', fontSize: 13 }}>没有找到匹配的段落。</div>}
         {results?.map((r, i) => (
           <div key={i} onClick={() => navigate(`/projects/${projectId}/sources/${r.source_id}`)}
             style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 10, padding: '12px 16px', cursor: 'pointer' }}
@@ -398,7 +398,7 @@ function SearchTab({ projectId }: { projectId: string }) {
             onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: '#e5e7eb', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>📄 {r.source_title}</span>
-              <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0 }}>page {r.page_number}</span>
+              <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>第 {r.page_number} 页</span>
             </div>
             <div style={{ fontSize: 12, color: '#9ca3af', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{r.content}</div>
           </div>
@@ -409,7 +409,7 @@ function SearchTab({ projectId }: { projectId: string }) {
 }
 
 // ── Highlights tab: every annotation in the project, grouped by source ────────
-function HighlightsTab({ projectId }: { projectId: string }) {
+export function HighlightsTab({ projectId }: { projectId: string }) {
   const navigate = useNavigate()
   const [highlights, setHighlights] = useState<Highlight[]>([])
   const [loading, setLoading] = useState(true)
@@ -426,11 +426,11 @@ function HighlightsTab({ projectId }: { projectId: string }) {
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 }}>
-        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>Highlights</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>高亮标注</span>
       </div>
       <div style={{ flex: 1, overflow: 'auto', padding: 16 }}>
-        {loading ? <div style={{ textAlign: 'center', paddingTop: 40, color: '#4b5563' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
-          : highlights.length === 0 ? <div style={{ textAlign: 'center', paddingTop: 60, color: '#4b5563' }}><div style={{ fontSize: 36, marginBottom: 12 }}>🖊</div>No highlights yet. Select text in a PDF and choose Highlight.</div>
+        {loading ? <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)' }}><div className="spinner" style={{ margin: '0 auto' }} /></div>
+          : highlights.length === 0 ? <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}><div style={{ fontSize: 36, marginBottom: 12 }}>🖊</div>暂无高亮标注。请在 PDF 中选择文字并点击“高亮”。</div>
           : bySource.map(([sourceId, group]) => (
             <div key={sourceId} style={{ marginBottom: 18 }}>
               <div onClick={() => navigate(`/projects/${projectId}/sources/${sourceId}`)}
@@ -439,7 +439,7 @@ function HighlightsTab({ projectId }: { projectId: string }) {
                 {group.items.map(h => (
                   <div key={h.id} onClick={() => navigate(`/projects/${projectId}/sources/${sourceId}`)}
                     style={{ background: 'var(--panel)', border: '1px solid var(--border)', borderLeft: `3px solid ${colors[h.color] ?? colors.yellow}`, borderRadius: 8, padding: '8px 12px', cursor: 'pointer', display: 'flex', gap: 10 }}>
-                    <span style={{ fontSize: 10, color: '#6b7280', flexShrink: 0, marginTop: 2 }}>p{h.page_number}</span>
+                    <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0, marginTop: 2 }}>第 {h.page_number} 页</span>
                     <span style={{ fontSize: 12, color: '#d1d5db', lineHeight: 1.5 }}>{h.text}</span>
                   </div>
                 ))}
@@ -482,7 +482,7 @@ export default function ProjectView() {
   if (!projectId) return null
 
   const navItem = (t: Tab, icon: string, label: string, count?: number) => (
-    <div role="tab" aria-selected={tab === t} onClick={() => setTab(t)} style={{
+    <div role="tab" tabIndex={0} aria-selected={tab === t} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); setTab(t) } }} onClick={() => setTab(t)} style={{
       display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px',
       borderRadius: 8, cursor: 'pointer', fontSize: 13, marginBottom: 2,
       background: tab === t ? '#1e1b4b' : 'transparent',
@@ -492,17 +492,17 @@ export default function ProjectView() {
       <span>{icon}</span>
       <span style={{ flex: 1 }}>{label}</span>
       {count !== undefined && count > 0 && (
-        <span style={{ background: 'var(--border)', borderRadius: 10, padding: '1px 7px', fontSize: 10, color: '#6b7280' }}>{count}</span>
+        <span style={{ background: 'var(--border)', borderRadius: 10, padding: '1px 7px', fontSize: 10, color: 'var(--muted)' }}>{count}</span>
       )}
     </div>
   )
 
   return (
-    <div style={{ display: 'flex', height: '100vh', background: 'var(--bg)' }}>
+    <div className="project-shell" style={{ display: 'flex', height: '100vh', background: 'var(--bg)' }}>
       {/* Sidebar */}
-      <div style={{ width: 220, flexShrink: 0, background: '#111', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
+      <div className="project-sidebar" style={{ width: 220, flexShrink: 0, background: '#111', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column' }}>
         <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--border)' }}>
-          <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 11, padding: 0, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>← All projects</button>
+          <button onClick={() => navigate('/')} style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: 0, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 4 }}>← 所有项目</button>
           {editingTitle ? (
             <input
               autoFocus
@@ -515,7 +515,7 @@ export default function ProjectView() {
           ) : (
             <div
               onClick={startTitleEdit}
-              title="Click to rename"
+              title="点击重命名"
               style={{ fontSize: 14, fontWeight: 700, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: 'text', borderRadius: 4, padding: '2px 4px', margin: '-2px -4px' }}
               onMouseEnter={e => (e.currentTarget.style.background = '#1a1a1a')}
               onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
@@ -524,21 +524,21 @@ export default function ProjectView() {
             </div>
           )}
           {project?.description && (
-            <div style={{ fontSize: 11, color: '#6b7280', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.description}</div>
+            <div style={{ fontSize: 11, color: 'var(--muted)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{project.description}</div>
           )}
         </div>
         <div style={{ flex: 1, padding: 8 }}>
-          {navItem('sources', '📄', 'Sources', project?.source_count)}
-          {navItem('search', '🔍', 'Search')}
-          {navItem('highlights', '🖊', 'Highlights')}
-          {navItem('notes', '📝', 'Notes', project?.note_count)}
-          {navItem('chats', '💬', 'Chats', project?.chat_count || undefined)}
+          {navItem('sources', '📄', "文献", project?.source_count)}
+          {navItem('search', '🔍', "搜索")}
+          {navItem('highlights', '🖊', "高亮标注")}
+          {navItem('notes', '📝', "笔记", project?.note_count)}
+          {navItem('chats', '💬', "对话", project?.chat_count || undefined)}
         </div>
         <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
           <button
             onClick={() => navigate(`/projects/${projectId}/chat`)}
             style={{ width: '100%', background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
-          >💬 Project Chat</button>
+          >💬 项目对话</button>
         </div>
       </div>
 

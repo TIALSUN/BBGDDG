@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto'
+import { createRequire } from 'node:module'
 import fs from 'node:fs'
 import path from 'node:path'
 import { load } from 'cheerio'
@@ -85,7 +86,13 @@ export function titleFromLines(lines: TitleCandidateLine[]): string {
 }
 
 export async function extractPdf(bytes: Buffer): Promise<{ text: string; pages: number; title: string }> {
-  const document = await getDocument({ data: new Uint8Array(bytes), useSystemFonts: true }).promise
+  const pdfjsRoot = path.dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'))
+  const document = await getDocument({
+    data: new Uint8Array(bytes), useSystemFonts: true,
+    cMapUrl: path.join(pdfjsRoot, 'cmaps') + '/', cMapPacked: true,
+    standardFontDataUrl: path.join(pdfjsRoot, 'standard_fonts') + '/',
+    wasmUrl: path.join(pdfjsRoot, 'wasm') + '/',
+  }).promise
   const parts: string[] = []
   let firstPageLines: TitleCandidateLine[] = []
   for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber++) {

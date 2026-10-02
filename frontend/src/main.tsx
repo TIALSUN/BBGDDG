@@ -3,11 +3,12 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import './index.css'
 import 'katex/dist/katex.min.css'
+import './workspace.css'
 
-import ProjectsPage from './pages/ProjectsPage'
-import ProjectView from './pages/ProjectView'
+import ProjectsPage from './pages/LibraryPage'
+import ProjectView from './pages/ProjectWorkspace'
 import NoteEditor from './pages/NoteEditor'
-import App from './App'  // legacy reader (now used as PaperReader)
+import App from './pages/ReaderPage'
 import ProjectChat from './pages/ProjectChat'
 import LoginPage from './components/LoginPage'
 
@@ -19,11 +20,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: string |
     if (this.state.error) {
       return (
         <div style={{ padding: 24, color: '#f87171', background: '#111', minHeight: '100vh', fontFamily: 'monospace' }}>
-          <div style={{ fontSize: 24, marginBottom: 16 }}>⚠️ App Error</div>
+          <div style={{ fontSize: 24, marginBottom: 16 }}>⚠️ 应用错误</div>
           <div style={{ fontSize: 12, color: '#9ca3af', marginBottom: 16 }}>{this.state.error}</div>
           <button onClick={() => { localStorage.clear(); location.reload() }}
             style={{ background: '#6366f1', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, cursor: 'pointer', fontWeight: 'bold' }}>
-            Clear cache &amp; reload
+            清除缓存并重新加载
           </button>
         </div>
       )
@@ -63,13 +64,13 @@ function Root() {
     <BrowserRouter>
       <Routes>
         {/* Projects list — home */}
-        <Route path="/" element={<ProjectsPage user={user} />} />
+        <Route path="/" element={<ProjectsPage />} />
 
         {/* Project view */}
         <Route path="/projects/:projectId" element={<ProjectView />} />
 
         {/* Paper reader (source inside project) */}
-        <Route path="/projects/:projectId/sources/:sourceId" element={<App user={user} />} />
+        <Route path="/projects/:projectId/sources/:sourceId" element={<App />} />
 
         {/* Project chat */}
         <Route path="/projects/:projectId/chat" element={<ProjectChat />} />

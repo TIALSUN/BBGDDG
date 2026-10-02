@@ -8,3 +8,7 @@ frontend/dist/
 *.db
 *.db-shm
 *.db-wal
+desktop/node_modules/
+desktop/runtime/
+desktop/assets/icon.ico
+desktop/tools/

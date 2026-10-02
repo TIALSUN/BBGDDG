@@ -67,6 +67,20 @@ export async function buildServer(config: PdfpalConfig) {
   })
   app.delete<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId', async request => { sources.remove(request.params.projectId, request.params.sourceId); return { ok: true } })
   app.post<{ Params: Pick<Params, 'projectId'>; Body: { url: string; title?: string; collection_id?: string } }>('/api/projects/:projectId/sources', async request => sources.add(request.params.projectId, request.body.url, request.body.title, request.body.collection_id))
+  app.post<{ Params: Pick<Params, 'projectId'> }>('/api/projects/:projectId/sources/upload', async (request, reply) => {
+    projects.resolve(request.params.projectId)
+    try {
+      const file = await request.file()
+      if (!file) return reply.status(400).send({ detail: '请选择 PDF 文件。' })
+      const bytes = await file.toBuffer()
+      if (file.file.truncated) return reply.status(413).send({ detail: 'PDF 文件不能超过 25 MB。' })
+      return await sources.addPdf(request.params.projectId, bytes, undefined, undefined, path.basename(file.filename.replaceAll('\\', '/')))
+    } catch (error) {
+      if ((error as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') return reply.status(413).send({ detail: 'PDF 文件不能超过 25 MB。' })
+      if (error instanceof PdfpalError) throw error
+      return reply.status(400).send({ detail: '无法读取此 PDF。请确认文件完整且未加密。' })
+    }
+  })
   app.post<{ Body: { url: string; project_id: string; source_id?: string; collection_id?: string } }>('/api/extract', async request => {
     if (request.body.source_id) {
       await sources.reindex(request.body.project_id, request.body.source_id, true)
@@ -181,10 +195,21 @@ function registerAnnotationRoutes(app: any, db: import('better-sqlite3').Databas
     (db.prepare('SELECT * FROM annotations WHERE project_id=? AND source_id=? ORDER BY page_number,y1').all(request.params.projectId, request.params.sourceId) as any[]).map(parseAnnotation))
   app.post('/api/projects/:projectId/sources/:sourceId/annotations', async (request: any) => {
     const id = randomUUID(), body = request.body
-    db.prepare('INSERT INTO annotations(id,source_id,project_id,page_number,x1,y1,x2,y2,text,color,rects,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)').run(id, request.params.sourceId, request.params.projectId, body.page_number, body.x1, body.y1, body.x2, body.y2, body.text, body.color ?? 'yellow', body.rects ? JSON.stringify(body.rects) : null, now())
+    if (!db.prepare('SELECT id FROM sources WHERE id=? AND project_id=?').get(request.params.sourceId,request.params.projectId)) throw new PdfpalError('SOURCE_NOT_FOUND','文献不存在。',3)
+    if (!Number.isInteger(body.page_number) || body.page_number < 1 || typeof body.text !== 'string' || !body.text.trim() || ![body.x1,body.y1,body.x2,body.y2].every(value=>typeof value==='number' && Number.isFinite(value) && value>=0 && value<=1)) throw new PdfpalError('INVALID_ANNOTATION','请选择文献中的文字后添加标注。',2)
+    if (!['yellow','green','blue','pink'].includes(body.color ?? 'yellow') || (body.note!==undefined && typeof body.note!=='string')) throw new PdfpalError('INVALID_ANNOTATION','注释或颜色无效。',2)
+    db.prepare('INSERT INTO annotations(id,source_id,project_id,page_number,x1,y1,x2,y2,text,color,rects,created_at,note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id, request.params.sourceId, request.params.projectId, body.page_number, body.x1, body.y1, body.x2, body.y2, body.text, body.color ?? 'yellow', body.rects ? JSON.stringify(body.rects) : null, now(),body.note ?? '')
     return parseAnnotation(db.prepare('SELECT * FROM annotations WHERE id=?').get(id))
   })
-  app.patch('/api/projects/:projectId/sources/:sourceId/annotations/:id', async (request: any) => { db.prepare('UPDATE annotations SET color=? WHERE id=? AND source_id=? AND project_id=?').run(request.body.color, request.params.id, request.params.sourceId, request.params.projectId); return parseAnnotation(db.prepare('SELECT * FROM annotations WHERE id=?').get(request.params.id)) })
+  app.patch('/api/projects/:projectId/sources/:sourceId/annotations/:id', async (request: any) => {
+    const {id,sourceId,projectId}=request.params
+    const existing=db.prepare('SELECT * FROM annotations WHERE id=? AND source_id=? AND project_id=?').get(id,sourceId,projectId) as {color:string;note:string}|undefined
+    if (!existing) throw new PdfpalError('ANNOTATION_NOT_FOUND','标注不存在。',3)
+    const color=request.body.color ?? existing.color, note=request.body.note ?? existing.note
+    if (!['yellow','green','blue','pink'].includes(color) || typeof note!=='string') throw new PdfpalError('INVALID_ANNOTATION','注释或颜色无效。',2)
+    db.prepare('UPDATE annotations SET color=?,note=? WHERE id=? AND source_id=? AND project_id=?').run(color,note,id,sourceId,projectId)
+    return parseAnnotation(db.prepare('SELECT * FROM annotations WHERE id=? AND source_id=? AND project_id=?').get(id,sourceId,projectId))
+  })
   app.delete('/api/projects/:projectId/sources/:sourceId/annotations/:id', async (request: any, reply: any) => { db.prepare('DELETE FROM annotations WHERE id=? AND source_id=? AND project_id=?').run(request.params.id, request.params.sourceId, request.params.projectId); reply.status(204).send() })
 }
 

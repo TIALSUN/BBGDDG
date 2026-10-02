@@ -8,6 +8,8 @@ import { RetrievalService } from './retrieval.js'
 import { SourceService } from './sources.js'
 import type { AskResult, Passage } from './types.js'
 import { PdfpalError } from './types.js'
+import fs from 'node:fs'
+import { extractPdf } from './pdf.js'
 
 const now = () => new Date().toISOString()
 
@@ -46,30 +48,38 @@ export class ChatService {
       const collectionSources = this.sources.list(project.id).filter(source => ids.has(source.id))
       scope = [...new Map([...selected, ...collectionSources].map(source => [source.id, source])).values()]
     }
-    let passages = this.retrieval.search(project.id, question, scope.map(source => source.id))
+    const scoped = !!options.collectionSelector || !!options.sourceSelectors?.length
+    let passages = scoped && !scope.length ? [] : this.retrieval.search(project.id, question, scope.map(source => source.id))
     if (!passages.length) {
-      const fallback = scope.length ? scope : this.sources.list(project.id)
+      const fallback = scoped ? scope : this.sources.list(project.id)
       passages = fallback.filter(source => source.pdf_text).slice(0, 4).map(source => ({
         source_id: source.id, source_title: source.title ?? 'Source', page_number: 1,
         content: (source.pdf_text ?? '').slice(0, 15_000), score: 0,
       }))
     }
-    if (!passages.length) throw new PdfpalError('NO_CONTEXT', 'No indexed source text is available for this project', 4)
+    const documentSources = scoped ? scope : this.sources.list(project.id)
+    const documents = (await Promise.all(documentSources.map(async source => {
+      const pdfPath = this.sources.pdfPath(source)
+      if (!pdfPath) return []
+      const text = source.pdf_text || (await extractPdf(fs.readFileSync(pdfPath))).text
+      return [{ path: pdfPath, title: source.title ?? 'Source', text }]
+    }))).flat()
+    if (!passages.length && !documents.length) throw new PdfpalError('NO_CONTEXT', 'No indexed source text or local PDF is available for this project', 4)
     const history = this.history(project.id, selected.length === 1 ? selected[0]!.id : undefined).slice(-10)
     const context = passages.reduce((out, passage) => {
       const block = `\n[Source: ${passage.source_title}; page ${passage.page_number}]\n${passage.content}\n`
       return out.length + block.length <= 80_000 ? out + block : out
     }, '')
-    const prompt = `You are a research assistant. Answer from the supplied passages. Cite source titles and page numbers when possible. If the context is insufficient, say so.\n\nPassages:${context}${history.length ? `\n\nRecent conversation:\n${history.map(message => `${message.role}: ${message.content}`).join('\n')}` : ''}\n\nUser: ${question}\nAssistant:`
-    const answer = await this.agents.invoke(prompt, options.agent, options.model)
-    const sourceIds = [...new Set(passages.map(passage => passage.source_id))]
+    const prompt = `You are a research assistant. Answer from the supplied passages and local documents. Consult complete local files whenever excerpts are insufficient. Cite source titles and page numbers when possible. If the available documents are insufficient, say so.\n\nPassages:${context}${history.length ? `\n\nRecent conversation:\n${history.map(message => `${message.role}: ${message.content}`).join('\n')}` : ''}\n\nUser: ${question}\nAssistant:`
+    const answer = await this.agents.invoke(prompt, options.agent, options.model, documents)
+    const sourceIds = [...new Set([...passages.map(passage => passage.source_id), ...documentSources.filter(source => this.sources.pdfPath(source)).map(source => source.id)])]
     const sessionId = this.persist(project.id, selected.length === 1 ? selected[0]!.id : null, question, answer, sourceIds)
     return {
       answer,
       project: { id: project.id, title: project.title },
       sources: sourceIds.map(id => {
         const relevant = passages.filter(passage => passage.source_id === id)
-        return { id, title: relevant[0]!.source_title, pages: [...new Set(relevant.map(passage => passage.page_number))].sort((a, b) => a - b) }
+        return { id, title: relevant[0]?.source_title ?? documentSources.find(source => source.id === id)?.title ?? 'Source', pages: [...new Set(relevant.map(passage => passage.page_number))].sort((a, b) => a - b) }
       }),
       chat_session_id: sessionId,
     }

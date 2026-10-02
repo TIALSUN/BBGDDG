@@ -16,7 +16,7 @@ export default function AgentSelect({ agent, setAgent, agents }: Props) {
     <select
       value={agent}
       onChange={e => setAgent(e.target.value)}
-      title="Chat agent"
+      title="对话助手"
       style={{
         background: '#1a1a1a',
         border: '1px solid var(--border)',

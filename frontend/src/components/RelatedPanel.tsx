@@ -41,7 +41,7 @@ function PaperCard({
       setAdded(true)
       onAdded(targetUrl)
     } catch (e: any) {
-      setErr(e.message?.slice(0, 60) || 'Failed')
+      setErr(e.message?.slice(0, 60) || "失败")
     } finally {
       setAdding(false)
     }
@@ -58,12 +58,12 @@ function PaperCard({
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
         {paper.authors && (
-          <span style={{ fontSize: 10, color: '#6b7280', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: 10, color: 'var(--muted)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {paper.authors}
           </span>
         )}
         {paper.year && (
-          <span style={{ fontSize: 10, color: '#4b5563', flexShrink: 0 }}>{paper.year}</span>
+          <span style={{ fontSize: 10, color: 'var(--muted)', flexShrink: 0 }}>{paper.year}</span>
         )}
       </div>
 
@@ -75,20 +75,20 @@ function PaperCard({
           <span style={{ background: '#14532d', border: '1px solid #166534', color: '#4ade80', borderRadius: 4, padding: '1px 7px', fontSize: 10 }}>PDF</span>
         )}
         {!hasPdf && !hasArxiv && (
-          <span style={{ background: '#1c1917', border: '1px solid #44403c', color: '#6b7280', borderRadius: 4, padding: '1px 7px', fontSize: 10 }}>No PDF</span>
+          <span style={{ background: '#1c1917', border: '1px solid #44403c', color: 'var(--muted)', borderRadius: 4, padding: '1px 7px', fontSize: 10 }}>无 PDF</span>
         )}
 
         <div style={{ flex: 1 }} />
 
         {paper.arxiv_url && (
           <a href={paper.arxiv_url} target="_blank" rel="noreferrer"
-            style={{ color: '#6b7280', fontSize: 10, textDecoration: 'none' }}
-            title="Open in browser"
+            style={{ color: 'var(--muted)', fontSize: 10, textDecoration: 'none' }}
+            title="在浏览器中打开"
           >🔗</a>
         )}
 
         {(isInProject || added) ? (
-          <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600 }}>✓ In project</span>
+          <span style={{ fontSize: 10, color: '#4ade80', fontWeight: 600 }}>✓ 已在项目中</span>
         ) : targetUrl ? (
           <button
             onClick={handleAdd}
@@ -100,7 +100,7 @@ function PaperCard({
               cursor: adding ? 'not-allowed' : 'pointer', flexShrink: 0,
             }}
           >
-            {adding ? <><span className="spinner" style={{ width: 8, height: 8, marginRight: 4 }} />Adding…</> : '＋ Add'}
+            {adding ? <><span className="spinner" style={{ width: 8, height: 8, marginRight: 4 }} />正在添加…</> : "＋ 添加"}
           </button>
         ) : null}
       </div>
@@ -165,7 +165,7 @@ export default function RelatedPanel({ projectId, sourceId }: Props) {
         padding: '0 8px', height: '100%', cursor: 'pointer',
       }}
     >
-      {label} {count > 0 && <span style={{ fontSize: 10, color: '#4b5563' }}>({count})</span>}
+      {label} {count > 0 && <span style={{ fontSize: 10, color: 'var(--muted)' }}>({count})</span>}
     </button>
   )
 
@@ -173,15 +173,15 @@ export default function RelatedPanel({ projectId, sourceId }: Props) {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'var(--panel)' }}>
       {/* Header */}
       <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db', flex: 1 }}>Related Papers</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db', flex: 1 }}>相关论文</span>
         {data?.provider === 'openalex' && (
-          <span title="Results supplied by OpenAlex" style={{ color: '#6b7280', fontSize: 10 }}>via OpenAlex</span>
+          <span title="结果由 OpenAlex 提供" style={{ color: 'var(--muted)', fontSize: 10 }}>来自 OpenAlex</span>
         )}
         <button
           onClick={handleRefresh}
           disabled={refreshing || loading}
-          title="Refresh related papers"
-          style={{ background: 'none', border: '1px solid var(--border)', color: '#6b7280', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}
+          title="刷新相关论文"
+          style={{ background: 'none', border: '1px solid var(--border)', color: 'var(--muted)', borderRadius: 6, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}
         >
           {refreshing ? <span className="spinner" style={{ width: 10, height: 10 }} /> : '↺'}
         </button>
@@ -190,27 +190,27 @@ export default function RelatedPanel({ projectId, sourceId }: Props) {
       {/* Sub-tabs */}
       {!loading && !error && (
         <div style={{ height: 32, borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'stretch', paddingLeft: 8, flexShrink: 0 }}>
-          {subTabBtn('references', 'References', refCount)}
-          {subTabBtn('citations', 'Citing', citeCount)}
+          {subTabBtn('references', "参考文献", refCount)}
+          {subTabBtn('citations', "引用本文", citeCount)}
         </div>
       )}
 
       {/* Content */}
       <div style={{ flex: 1, overflow: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {loading && (
-          <div style={{ textAlign: 'center', paddingTop: 40, color: '#4b5563' }}>
+          <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)' }}>
             <div className="spinner" style={{ margin: '0 auto 12px' }} />
-            <div style={{ fontSize: 12 }}>Finding related papers…</div>
+            <div style={{ fontSize: 12 }}>正在查找相关论文…</div>
           </div>
         )}
 
         {!loading && error && (
-          <div style={{ textAlign: 'center', paddingTop: 40, color: '#6b7280', fontSize: 12, padding: '40px 16px' }}>
+          <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)', fontSize: 12, padding: '40px 16px' }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>🔍</div>
             <div>{error}</div>
             {error === 'Paper not found in Semantic Scholar or OpenAlex' && (
-              <div style={{ fontSize: 11, marginTop: 8, color: '#4b5563' }}>
-                Neither citation index could identify this paper. Both References and Citing need a matching paper record.
+              <div style={{ fontSize: 11, marginTop: 8, color: 'var(--muted)' }}>
+                两个引用数据库都未能识别此论文。参考文献和引用本文功能需要匹配的论文记录。
               </div>
             )}
             <button
@@ -218,15 +218,15 @@ export default function RelatedPanel({ projectId, sourceId }: Props) {
               disabled={refreshing}
               style={{ marginTop: 14, background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '5px 14px', fontSize: 11, cursor: refreshing ? 'not-allowed' : 'pointer' }}
             >
-              {refreshing ? <span className="spinner" style={{ width: 10, height: 10 }} /> : '↺ Retry'}
+              {refreshing ? <span className="spinner" style={{ width: 10, height: 10 }} /> : "↺ 重试"}
             </button>
           </div>
         )}
 
         {!loading && !error && papers.length === 0 && (
-          <div style={{ textAlign: 'center', paddingTop: 40, color: '#4b5563', fontSize: 12 }}>
+          <div style={{ textAlign: 'center', paddingTop: 40, color: 'var(--muted)', fontSize: 12 }}>
             <div style={{ fontSize: 28, marginBottom: 12 }}>📭</div>
-            No {subTab} found.
+            未找到{subTab === 'references' ? '参考文献' : '引用本文的论文'}。
           </div>
         )}
 

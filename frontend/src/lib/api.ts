@@ -15,6 +15,7 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
     const err = await res.json().catch(() => ({ detail: res.statusText }))
     throw new Error(err.detail || `API error ${res.status}`)
   }
+  if (res.status === 204) return undefined as T
   return res.json()
 }
 
@@ -78,6 +79,16 @@ export const projectsApi = {
 }
 
 export const sourcesApi = {
+  upload: async (projectId: string, file: File): Promise<Source> => {
+    const body = new FormData()
+    body.append('file', file)
+    const res = await fetch(`${BASE}/projects/${projectId}/sources/upload`, { method: 'POST', credentials: 'include', body })
+    if (!res.ok) {
+      const error = await res.json().catch(() => ({ detail: '导入失败，请重试。' }))
+      throw new Error(error.detail || '导入失败，请重试。')
+    }
+    return res.json()
+  },
   list: (projectId: string) => apiFetch<Source[]>(`/projects/${projectId}/sources`),
   get: (projectId: string, sourceId: string) =>
     apiFetch<Source>(`/projects/${projectId}/sources/${sourceId}`),
@@ -229,6 +240,7 @@ export const chatApi = {
 }
 
 export interface Annotation {
+  note?: string
   id: string
   source_id: string
   project_id: string
@@ -247,6 +259,8 @@ export interface Annotation {
 }
 
 export const annotationsApi = {
+  update: (projectId: string, sourceId: string, annotationId: string, data: { note?: string; color?: string }) =>
+    apiFetch<Annotation>(`/projects/${projectId}/sources/${sourceId}/annotations/${annotationId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   list: (projectId: string, sourceId: string) =>
     apiFetch<Annotation[]>(`/projects/${projectId}/sources/${sourceId}/annotations`),
   create: (projectId: string, sourceId: string, data: Omit<Annotation, 'id' | 'source_id' | 'project_id' | 'created_at'>) =>

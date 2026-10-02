@@ -101,7 +101,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
 
       if (!res.ok) {
         const data = await res.json()
-        throw new Error(data.detail || 'Chat request failed')
+        throw new Error(data.detail || "对话请求失败")
       }
 
       const reader = res.body!.getReader()
@@ -133,7 +133,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
 
       setMessages([...newHistory, { role: 'assistant', content: assistantText }])
     } catch (e: any) {
-      setError(e.message || 'Something went wrong')
+      setError(e.message || "出现错误")
       setMessages(newHistory)
     } finally {
       setLoading(false)
@@ -159,7 +159,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         justifyContent: 'space-between',
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db' }}>AI Chat</span>
+        <span style={{ fontSize: 14, fontWeight: 600, color: '#d1d5db' }}>AI 对话</span>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           {messages.length > 0 && (
             <button
@@ -169,14 +169,14 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
                   if (projectId && sourceId) await chatApi.clearSourceChat(projectId, sourceId)
                 } catch { /* non-fatal */ }
               }}
-              title="Clear conversation"
+              title="清空对话"
               style={{
-                background: 'none', border: 'none', color: '#6b7280',
+                background: 'none', border: 'none', color: 'var(--muted)',
                 cursor: 'pointer', fontSize: 12, padding: '3px 8px',
                 borderRadius: 5, transition: 'color 0.15s',
               }}
             >
-              Clear
+              清空
             </button>
           )}
           <AgentSelect agent={agent} setAgent={setAgent} agents={agentOptions} />
@@ -198,11 +198,11 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         }}>
           <span>✏️</span>
           <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            Selection ready — edit the prompt below or press Enter to send
+            已选中文字，可编辑下方问题或按 Enter 发送
           </span>
           <button
             onClick={() => { onSelectedTextUsed?.(); setInput('') }}
-            style={{ background: 'none', border: 'none', color: '#6b7280', cursor: 'pointer', fontSize: 14 }}
+            style={{ background: 'none', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: 14 }}
           >✕</button>
         </div>
       )}
@@ -213,10 +213,10 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         display: 'flex', flexDirection: 'column', gap: 12,
       }}>
         {messages.length === 0 && !loading && (
-          <div style={{ color: '#4b5563', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
+          <div style={{ color: 'var(--muted)', fontSize: 14, textAlign: 'center', marginTop: 40 }}>
             {disabled
-              ? 'Load a PDF to start chatting'
-              : 'Ask anything about the document…'}
+              ? "加载 PDF 后即可开始对话"
+              : "可以提问文档中的任何内容…"}
           </div>
         )}
 
@@ -245,9 +245,9 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               padding: '12px 16px', background: '#252525',
               borderRadius: '16px 16px 16px 4px',
               display: 'flex', alignItems: 'center', gap: 8,
-              color: '#6b7280', fontSize: 14,
+              color: 'var(--muted)', fontSize: 14,
             }}>
-              <span className="spinner" /> Thinking…
+              <span className="spinner" /> 正在思考…
             </div>
           </div>
         )}
@@ -269,7 +269,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
           onChange={e => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={disabled || loading}
-          placeholder={disabled ? 'Load a PDF first…' : 'Ask something… (Enter to send, Shift+Enter for newline)'}
+          placeholder={disabled ? "请先加载 PDF…" : "输入问题…（Enter 发送，Shift+Enter 换行）"}
           rows={3}
           style={{
             flex: 1,
