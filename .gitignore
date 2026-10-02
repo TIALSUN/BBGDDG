@@ -12,3 +12,12 @@ desktop/node_modules/
 desktop/runtime/
 desktop/assets/icon.ico
 desktop/tools/
+
+release/
+artifacts/
+.env.*
+!.env.example
+ai-settings.json
+ai-secret-key.bin
+.ai-secret-key
+*.log

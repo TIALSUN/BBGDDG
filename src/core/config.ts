@@ -18,11 +18,11 @@ const ConfigSchema = z.object({
   semanticScholarApiKey: z.string(),
 })
 
-export type PdfpalConfig = z.infer<typeof ConfigSchema>
+export type BbgddgConfig = z.infer<typeof ConfigSchema>
 
 type ConfigFile = Partial<{
   port: number
-  agent: PdfpalConfig['agent']
+  agent: BbgddgConfig['agent']
   model: string
   claude_bin: string
   codex_bin: string
@@ -43,8 +43,8 @@ function parseLegacy(text: string): Record<string, string> {
   return result
 }
 
-export function loadConfig(overrides: Partial<PdfpalConfig> = {}): PdfpalConfig {
-  const dataDir = overrides.dataDir ?? process.env.PDFPAL_DATA_DIR ?? path.join(os.homedir(), '.pdfpal')
+export function loadConfig(overrides: Partial<BbgddgConfig> = {}): BbgddgConfig {
+  const dataDir = overrides.dataDir ?? process.env.BBGDDG_DATA_DIR ?? path.join(os.homedir(), '.bbgddg')
   fs.mkdirSync(dataDir, { recursive: true })
   const configPath = path.join(dataDir, 'config.json')
   const legacyPath = path.join(dataDir, 'config.env')
@@ -54,9 +54,9 @@ export function loadConfig(overrides: Partial<PdfpalConfig> = {}): PdfpalConfig 
   } else if (fs.existsSync(legacyPath)) {
     const legacy = parseLegacy(fs.readFileSync(legacyPath, 'utf8'))
     file = {
-      port: legacy.PDFPAL_PORT ? Number(legacy.PDFPAL_PORT) : undefined,
-      agent: legacy.PDFPAL_AGENT as ConfigFile['agent'],
-      model: legacy.PDFPAL_MODEL,
+      port: legacy.BBGDDG_PORT ? Number(legacy.BBGDDG_PORT) : undefined,
+      agent: legacy.BBGDDG_AGENT as ConfigFile['agent'],
+      model: legacy.BBGDDG_MODEL,
       claude_bin: legacy.CLAUDE_BIN,
       codex_bin: legacy.CODEX_BIN,
       opencode_bin: legacy.OPENCODE_BIN,
@@ -64,16 +64,16 @@ export function loadConfig(overrides: Partial<PdfpalConfig> = {}): PdfpalConfig 
     fs.writeFileSync(configPath, `${JSON.stringify(file, null, 2)}\n`, { mode: 0o600 })
   }
 
-  const envPort = process.env.PDFPAL_PORT ? Number(process.env.PDFPAL_PORT) : undefined
+  const envPort = process.env.BBGDDG_PORT ? Number(process.env.BBGDDG_PORT) : undefined
   return ConfigSchema.parse({
     dataDir,
-    dbPath: overrides.dbPath ?? process.env.PDFPAL_DB ?? path.join(dataDir, 'pdfpal.db'),
+    dbPath: overrides.dbPath ?? process.env.BBGDDG_DB ?? path.join(dataDir, 'bbgddg.db'),
     filesDir: overrides.filesDir ?? path.join(dataDir, 'files'),
     backupsDir: overrides.backupsDir ?? path.join(dataDir, 'backups'),
     port: overrides.port ?? envPort ?? file.port ?? 8200,
     host: overrides.host ?? '127.0.0.1',
-    agent: overrides.agent ?? process.env.PDFPAL_AGENT ?? file.agent ?? 'claude',
-    model: overrides.model ?? process.env.PDFPAL_MODEL ?? file.model ?? '',
+    agent: overrides.agent ?? process.env.BBGDDG_AGENT ?? file.agent ?? 'claude',
+    model: overrides.model ?? process.env.BBGDDG_MODEL ?? file.model ?? '',
     claudeBin: overrides.claudeBin ?? process.env.CLAUDE_BIN ?? file.claude_bin ?? 'claude',
     codexBin: overrides.codexBin ?? process.env.CODEX_BIN ?? file.codex_bin ?? 'codex',
     opencodeBin: overrides.opencodeBin ?? process.env.OPENCODE_BIN ?? file.opencode_bin ?? 'opencode',
@@ -81,6 +81,6 @@ export function loadConfig(overrides: Partial<PdfpalConfig> = {}): PdfpalConfig 
   })
 }
 
-export function ensureDataDirectories(config: PdfpalConfig): void {
+export function ensureDataDirectories(config: BbgddgConfig): void {
   for (const dir of [config.dataDir, config.filesDir, config.backupsDir]) fs.mkdirSync(dir, { recursive: true })
 }

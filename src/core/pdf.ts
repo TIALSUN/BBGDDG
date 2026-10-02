@@ -4,9 +4,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { load } from 'cheerio'
 import { getDocument } from 'pdfjs-dist/legacy/build/pdf.mjs'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 
-const HEADERS = { 'user-agent': 'Mozilla/5.0 pdfpal/2.0', accept: 'application/pdf,text/html;q=0.9,*/*;q=0.8' }
+const HEADERS = { 'user-agent': 'Mozilla/5.0 bbgddg/2.0', accept: 'application/pdf,text/html;q=0.9,*/*;q=0.8' }
 
 async function fetchBytes(url: string, timeoutMs = 45_000): Promise<{ response: Response; bytes: Buffer }> {
   try {
@@ -14,7 +14,7 @@ async function fetchBytes(url: string, timeoutMs = 45_000): Promise<{ response: 
     return { response, bytes: Buffer.from(await response.arrayBuffer()) }
   } catch (error) {
     const timedOut = error instanceof Error && (error.name === 'TimeoutError' || error.name === 'AbortError')
-    if (timedOut) throw new PdfpalError('PDF_FETCH_TIMEOUT', `Timed out downloading the PDF from ${new URL(url).hostname}. Try again or use another open-access URL.`, 1)
+    if (timedOut) throw new BbgddgError('PDF_FETCH_TIMEOUT', `Timed out downloading the PDF from ${new URL(url).hostname}. Try again or use another open-access URL.`, 1)
     throw error
   }
 }
@@ -46,24 +46,24 @@ export async function resolvePdf(input: string): Promise<{ bytes: Buffer; url: s
   } catch (error) {
     // arxiv.org occasionally throttles or stalls large downloads. Its export
     // host serves the same canonical PDF and is safe to use as a retry.
-    if (error instanceof PdfpalError && error.code === 'PDF_FETCH_TIMEOUT' && new URL(url).hostname === 'arxiv.org') {
+    if (error instanceof BbgddgError && error.code === 'PDF_FETCH_TIMEOUT' && new URL(url).hostname === 'arxiv.org') {
       url = url.replace('://arxiv.org/', '://export.arxiv.org/')
       fetched = await fetchBytes(url)
     } else throw error
   }
   let { response, bytes } = fetched
-  if (!response.ok) throw new PdfpalError('PDF_FETCH_FAILED', `Failed to fetch PDF: HTTP ${response.status}`)
+  if (!response.ok) throw new BbgddgError('PDF_FETCH_FAILED', `Failed to fetch PDF: HTTP ${response.status}`)
   if (bytes.subarray(0, 4).toString() === '%PDF') return { bytes, url: response.url }
   const contentType = response.headers.get('content-type') ?? ''
-  if (!contentType.includes('html')) throw new PdfpalError('NOT_A_PDF', 'The source did not return a PDF')
+  if (!contentType.includes('html')) throw new BbgddgError('NOT_A_PDF', 'The source did not return a PDF')
   const $ = load(bytes.toString('utf8'))
   const href = $('meta[name="citation_pdf_url"],meta[property="citation_pdf_url"]').attr('content')
     ?? $('a[href*=".pdf"]').first().attr('href')
-  if (!href) throw new PdfpalError('PDF_LINK_NOT_FOUND', 'Could not find a PDF link on the page')
+  if (!href) throw new BbgddgError('PDF_LINK_NOT_FOUND', 'Could not find a PDF link on the page')
   url = new URL(href, response.url).toString()
   ;({ response, bytes } = await fetchBytes(rewritePdfUrl(url)))
-  if (!response.ok) throw new PdfpalError('PDF_FETCH_FAILED', `Failed to fetch discovered PDF: HTTP ${response.status}`)
-  if (bytes.subarray(0, 4).toString() !== '%PDF') throw new PdfpalError('NOT_A_PDF', 'Discovered link did not return a PDF')
+  if (!response.ok) throw new BbgddgError('PDF_FETCH_FAILED', `Failed to fetch discovered PDF: HTTP ${response.status}`)
+  if (bytes.subarray(0, 4).toString() !== '%PDF') throw new BbgddgError('NOT_A_PDF', 'Discovered link did not return a PDF')
   return { bytes, url: response.url }
 }
 

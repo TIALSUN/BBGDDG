@@ -29,7 +29,7 @@ function SourceRow({ source, projectId, drag }: {
     e.stopPropagation()
     if (!confirm("确定移除此文献吗？")) return
     await sourcesApi.delete(projectId, source.id)
-    window.dispatchEvent(new CustomEvent('pdfpal:sources-changed'))
+    window.dispatchEvent(new CustomEvent('bbgddg:sources-changed'))
   }
 
   return (
@@ -101,8 +101,8 @@ export function SourcesTab({ projectId }: { projectId: string }) {
   useEffect(() => { reload() }, [projectId])
   useEffect(() => {
     const onChange = () => reload()
-    window.addEventListener('pdfpal:sources-changed', onChange)
-    return () => window.removeEventListener('pdfpal:sources-changed', onChange)
+    window.addEventListener('bbgddg:sources-changed', onChange)
+    return () => window.removeEventListener('bbgddg:sources-changed', onChange)
   }, [projectId])
 
   // Index the flat collection list into a parent → children tree and group

@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Database } from 'better-sqlite3'
-import type { PdfpalConfig } from './config.js'
+import type { BbgddgConfig } from './config.js'
 import { extractPdf, resolvePdf, storePdf } from './pdf.js'
 import { titleFromUrl } from './research.js'
 import { CollectionService } from './collections.js'
 import { ProjectService } from './projects.js'
 import { RetrievalService } from './retrieval.js'
 import type { Source } from './types.js'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 
 const now = () => new Date().toISOString()
 
@@ -18,7 +18,7 @@ export class SourceService {
   private readonly retrieval: RetrievalService
   private readonly collections: CollectionService
 
-  constructor(private readonly db: Database, private readonly config: PdfpalConfig) {
+  constructor(private readonly db: Database, private readonly config: BbgddgConfig) {
     this.projects = new ProjectService(db)
     this.retrieval = new RetrievalService(db)
     this.collections = new CollectionService(db)
@@ -34,8 +34,8 @@ export class SourceService {
     const exact = this.db.prepare('SELECT * FROM sources WHERE project_id=? AND id=?').get(project.id, selector) as Source | undefined
     if (exact) return exact
     const matches = this.db.prepare('SELECT * FROM sources WHERE project_id=? AND title=? COLLATE NOCASE ORDER BY created_at').all(project.id, selector) as Source[]
-    if (!matches.length) throw new PdfpalError('SOURCE_NOT_FOUND', `Source not found: ${selector}`, 3)
-    if (matches.length > 1) throw new PdfpalError('AMBIGUOUS_SOURCE', `Source title is ambiguous: ${selector}`, 4, matches.map(({ id, title }) => ({ id, title })))
+    if (!matches.length) throw new BbgddgError('SOURCE_NOT_FOUND', `Source not found: ${selector}`, 3)
+    if (matches.length > 1) throw new BbgddgError('AMBIGUOUS_SOURCE', `Source title is ambiguous: ${selector}`, 4, matches.map(({ id, title }) => ({ id, title })))
     return matches[0]!
   }
 
@@ -51,10 +51,10 @@ export class SourceService {
       url = resolved.url
     } else {
       const absolute = path.resolve(location)
-      if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) throw new PdfpalError('FILE_NOT_FOUND', `PDF file not found: ${location}`, 3)
+      if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) throw new BbgddgError('FILE_NOT_FOUND', `PDF file not found: ${location}`, 3)
       bytes = fs.readFileSync(absolute)
       originalLocation = absolute
-      if (bytes.subarray(0, 4).toString() !== '%PDF') throw new PdfpalError('NOT_A_PDF', `File is not a PDF: ${location}`, 2)
+      if (bytes.subarray(0, 4).toString() !== '%PDF') throw new BbgddgError('NOT_A_PDF', `File is not a PDF: ${location}`, 2)
     }
     return this.addPdf(projectSelector, bytes, title, collectionSelector, originalLocation, url)
   }
@@ -62,7 +62,7 @@ export class SourceService {
   async addPdf(projectSelector: string, bytes: Buffer, title?: string, collectionSelector?: string, originalLocation = 'upload.pdf', url: string | null = null): Promise<Source> {
     const project = this.projects.resolve(projectSelector)
     const collectionId = collectionSelector ? this.collections.resolve(project.id, collectionSelector).id : null
-    if (bytes.subarray(0, 4).toString() !== '%PDF') throw new PdfpalError('NOT_A_PDF', '请选择有效的 PDF 文件。', 2)
+    if (bytes.subarray(0, 4).toString() !== '%PDF') throw new BbgddgError('NOT_A_PDF', '请选择有效的 PDF 文件。', 2)
     const id = randomUUID()
     const extracted = await extractPdf(bytes)
     const stored = storePdf(bytes, this.config.filesDir, id)
@@ -95,7 +95,7 @@ export class SourceService {
 
   rename(projectSelector: string, sourceSelector: string, title: string): Source {
     const source = this.resolve(projectSelector, sourceSelector)
-    if (!title.trim()) throw new PdfpalError('INVALID_TITLE', 'Source title cannot be empty', 2)
+    if (!title.trim()) throw new BbgddgError('INVALID_TITLE', 'Source title cannot be empty', 2)
     this.db.prepare('UPDATE sources SET title=?, accessed_at=? WHERE id=?').run(title.trim(), now(), source.id)
     return this.resolve(source.project_id, source.id)
   }
@@ -103,7 +103,7 @@ export class SourceService {
   move(projectSelector: string, sourceSelector: string, targetProjectSelector: string): Source {
     const source = this.resolve(projectSelector, sourceSelector)
     const target = this.projects.resolve(targetProjectSelector)
-    if (source.project_id === target.id) throw new PdfpalError('SAME_PROJECT', 'Source is already in the target project', 4)
+    if (source.project_id === target.id) throw new BbgddgError('SAME_PROJECT', 'Source is already in the target project', 4)
     this.db.transaction(() => {
       // Collections are project-scoped, so a cross-project move unfiles the source.
       this.db.prepare('UPDATE sources SET project_id=?, collection_id=NULL, accessed_at=? WHERE id=?').run(target.id, now(), source.id)
@@ -126,7 +126,7 @@ export class SourceService {
     const source = this.resolve(projectSelector, sourceSelector)
     const lastPage = Math.max(1, source.pages)
     if (!Number.isInteger(page) || page < 1 || page > lastPage) {
-      throw new PdfpalError('INVALID_PAGE', `Page must be an integer between 1 and ${lastPage}`, 2)
+      throw new BbgddgError('INVALID_PAGE', `Page must be an integer between 1 and ${lastPage}`, 2)
     }
     this.db.prepare('UPDATE sources SET last_page_read=?, accessed_at=? WHERE id=?').run(page, now(), source.id)
     return this.resolve(source.project_id, source.id)
@@ -152,7 +152,7 @@ export class SourceService {
       }
       if (refetch) {
         const location = source.url ?? source.original_location
-        if (!location) throw new PdfpalError('SOURCE_UNAVAILABLE', `No retrievable location for ${source.title ?? source.id}`)
+        if (!location) throw new BbgddgError('SOURCE_UNAVAILABLE', `No retrievable location for ${source.title ?? source.id}`)
         const bytes = /^https?:\/\//.test(location) ? (await resolvePdf(location)).bytes : fs.readFileSync(location)
         const extracted = await extractPdf(bytes)
         const stored = storePdf(bytes, this.config.filesDir, source.id)

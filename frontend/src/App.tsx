@@ -291,7 +291,7 @@ export default function App({ user }: { user: User }) {
     setRightPanel('chat')
   }
 
-  // New sources are stored under ~/.pdfpal/files and served by source ID.
+  // New sources are stored under ~/.bbgddg/files and served by source ID.
   // Keep the URL proxy as a compatibility fallback for databases migrated
   // before managed-file storage was introduced.
   const viewerUrl = source && projectId && sourceId

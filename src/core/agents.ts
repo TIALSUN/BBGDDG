@@ -4,8 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { createRequire } from 'node:module'
 import { pathToFileURL } from 'node:url'
-import type { PdfpalConfig } from './config.js'
-import { PdfpalError } from './types.js'
+import type { BbgddgConfig } from './config.js'
+import { BbgddgError } from './types.js'
 import { AiSettingsStore, apiIds, cliIds, type ProviderId, type ApiId, type CliId } from './ai-settings.js'
 import { ApiAgent, type AgentAnswer } from './ai-api.js'
 import { findCommand, launchCommand, detectWorkBuddyDesktop, parseCliAnswer } from './ai-cli.js'
@@ -17,7 +17,7 @@ export interface AgentDocument { path: string; title: string; text: string }
 export class AgentService {
   private readonly settings: AiSettingsStore
   private readonly api: ApiAgent
-  constructor(private readonly config: PdfpalConfig) { this.settings = new AiSettingsStore(config); this.api = new ApiAgent(this.settings) }
+  constructor(private readonly config: BbgddgConfig) { this.settings = new AiSettingsStore(config); this.api = new ApiAgent(this.settings) }
 
   list() {
     const labels = { codex: 'Codex', claude: 'Claude Code', workbuddy: '腾讯 WorkBuddy', 'deepseek-harness': 'DeepSeek Harness', opencode: 'OpenCode' }
@@ -47,11 +47,11 @@ export class AgentService {
 
   async invokeDetailed(prompt: string, agent?: AgentName, model?: string, documents: AgentDocument[] = []): Promise<AgentAnswer> {
     agent = agent || this.settings.defaultProvider() || this.config.agent
-    if (![...cliIds, ...apiIds].includes(agent)) throw new PdfpalError('UNKNOWN_PROVIDER', '不支持这个 AI 服务。', 2)
+    if (![...cliIds, ...apiIds].includes(agent)) throw new BbgddgError('UNKNOWN_PROVIDER', '不支持这个 AI 服务。', 2)
     const isApi = apiIds.includes(agent as ApiId)
     const selectedModel = model || (isApi ? this.settings.profile(agent as ApiId).model : this.settings.cli(agent as CliId)?.model || this.config.model)
     let result: AgentAnswer
-    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `pdfpal-${agent}-`))
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `bbgddg-${agent}-`))
     try {
     if (documents.length) {
       const manifest = documents.map((document, index) => {
@@ -96,15 +96,15 @@ export class AgentService {
       args = ['--profile', 'headless', '--json', '-']; stdin = prompt
     } else if (agent === 'workbuddy') {
       const custom = this.settings.cli('workbuddy')
-      if (!custom?.command || !custom.args?.length) throw new PdfpalError('WORKBUDDY_CLI_REQUIRED', 'WorkBuddy 尚未配置可确认的非交互调用方式。请在 AI 设置中填写命令路径和调用参数。', 2)
+      if (!custom?.command || !custom.args?.length) throw new BbgddgError('WORKBUDDY_CLI_REQUIRED', 'WorkBuddy 尚未配置可确认的非交互调用方式。请在 AI 设置中填写命令路径和调用参数。', 2)
       args = custom.args.map(arg => arg.replaceAll('{model}', selectedModel)); stdin = prompt
     } else {
       const agentDir = path.join(cwd, '.opencode', 'agent')
       fs.mkdirSync(agentDir, { recursive: true })
-      fs.writeFileSync(path.join(agentDir, 'pdfpal.md'), `---\ndescription: pdfpal responder\nmode: primary\npermissions: []\n${model ? `model: ${model}\n` : ''}---\nAnswer only from supplied context.\n`)
+      fs.writeFileSync(path.join(agentDir, 'bbgddg.md'), `---\ndescription: bbgddg responder\nmode: primary\npermissions: []\n${model ? `model: ${model}\n` : ''}---\nAnswer only from supplied context.\n`)
       args = ['run', '--format', 'json']
       if (selectedModel) args.push('-m', selectedModel)
-      args.push('--agent', 'pdfpal', prompt)
+      args.push('--agent', 'bbgddg', prompt)
     }
       result = await new Promise<AgentAnswer>((resolve, reject) => {
         const child = spawn(launch.binary, [...launch.prefix, ...args], { cwd, env: agentEnvironment(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
@@ -112,21 +112,21 @@ export class AgentService {
         const fail = (error: unknown) => { clearTimeout(timer); reject(error) }
         child.stdout.on('data', data => stdout.push(Buffer.from(data)))
         child.stderr.resume()
-        child.on('error', () => fail(new PdfpalError('AGENT_FAILED', '无法启动该工具，请检查命令路径。', 2)))
+        child.on('error', () => fail(new BbgddgError('AGENT_FAILED', '无法启动该工具，请检查命令路径。', 2)))
         // Some valid command-line programs exit without reading stdin (for
         // example a probe executable or a failed agent). Treat the resulting
         // broken pipe as a process outcome instead of an uncaught exception.
         child.stdin.on('error', error => {
-          if ((error as NodeJS.ErrnoException).code !== 'EPIPE') { child.kill(); fail(new PdfpalError('AGENT_FAILED', '无法向工具提交问题。', 2)) }
+          if ((error as NodeJS.ErrnoException).code !== 'EPIPE') { child.kill(); fail(new BbgddgError('AGENT_FAILED', '无法向工具提交问题。', 2)) }
         })
         const timer = setTimeout(() => {
           child.kill('SIGKILL')
-          reject(new PdfpalError('AGENT_TIMEOUT', 'Agent request timed out after five minutes'))
+          reject(new BbgddgError('AGENT_TIMEOUT', 'Agent request timed out after five minutes'))
         }, 300_000)
         child.on('close', code => {
           clearTimeout(timer)
           const out = Buffer.concat(stdout).toString('utf8').trim()
-          if (code !== 0) return reject(new PdfpalError('AGENT_FAILED', `${agent} 调用失败（退出码 ${code}），请检查登录状态、模型和额度。`))
+          if (code !== 0) return reject(new BbgddgError('AGENT_FAILED', `${agent} 调用失败（退出码 ${code}），请检查登录状态、模型和额度。`))
           try { resolve(parseCliAnswer(cli, out, cli === 'deepseek-harness' ? '' : selectedModel)) } catch (error) { reject(error) }
         })
         if (stdin) child.stdin.end(stdin)

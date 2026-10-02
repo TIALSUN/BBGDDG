@@ -6,7 +6,7 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: 'http://localhost:8201',
-    extraHTTPHeaders: { 'x-pdfpal-token': 'e'.repeat(64) },
+    extraHTTPHeaders: { 'x-bbgddg-token': 'e'.repeat(64) },
     trace: 'on-first-retry',
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH
       ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } }

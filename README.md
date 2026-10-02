@@ -1,248 +1,84 @@
-# pdfpal
+# BBGDDG
 
-> **AI to read deeper, not to avoid reading.**
+中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-An inline PDF reader with AI chat, notes, and highlights side by side, plus a scriptable CLI an AI agent can drive on its own. Runs entirely on your machine, powered by your existing Claude, Codex, or OpenCode subscription. No SaaS fee, no usage cap, no account.
+当前版本：**1.0.0**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
-There's a lot of vibe researching going on. Feed the PDF to a chatbot and ask for the gist, watch the 20-minute YouTube explainer, skim an AI-generated summary, then walk away feeling like you read the paper. You didn't. The understanding that matters lives in exactly the parts the summary flattens: the assumptions, the derivation the author skipped, the limitation buried in section 6, the table that quietly contradicts the abstract. If your grasp of a paper ends where a summary does, you don't have one.
+## 功能
 
-But the answer isn't to pretend it's five years ago: print the paper, read it alone, hit a wall on page 4 (notation you forgot, a step "left as an exercise", background the author assumes you have) and either suffer through it or quietly give up. That suffering was never the point. pdfpal is the middle ground: you read the actual paper, and AI sits next to the page, unpacking the passage you're stuck on, answering questions grounded in the text instead of vibes, keeping you reading instead of pretending.
+- 中文深色主页与阅读页，项目管理、本地 PDF 导入、中文字体资源和阅读进度。
+- 按文字位置保存高亮，支持取消高亮、编辑注释和删除；项目与文献笔记支持 Markdown 和公式。
+- 主页与阅读页共用 AI 选择：可用工具亮显，未安装或未配置工具变浅。
+- Codex、Claude Code、OpenCode、DeepSeek Harness 和可配置的 WorkBuddy 适配器。
+- DeepSeek API、OpenAI 兼容 API 和 Claude API；后端加密保存 API 密钥。
+- 记录模型返回的 token 用量和本地累计统计；这些数值不是订阅账号的剩余额度。
+- Windows 安装与便携版；本地会话鉴权、渲染隔离和系统密钥保护。
 
-<div align="center">
+阅读、笔记与高亮不需要 AI 账号。AI 问答使用已有工具登录或自填 API，仍受服务商的费用及用量限制。云端问答会发送文献提取文字，详见 [SECURITY.md](SECURITY.md)。
 
-| Read and chat, side by side | Your research, organized |
-|:---:|:---:|
-| ![Reader](screenshots/1-reader.png) | ![Projects](screenshots/4-projects.png) |
-| Ask questions about the paper you're reading, with no tab-switching | Projects, collections, notes, and chat history, all in one place |
+## 从源码启动
 
-</div>
+建议使用 **Node.js 24 LTS** 和 npm。桌面构建当前面向 Windows x64。
 
-## Isn't this already a thing?
-
-Sort of. There are plenty of chat-with-PDF tools: web apps where you upload a paper and ask questions, AI assistants bolted onto PDF readers, notebook tools that summarize your sources. If you've tried one, you know the pattern: a free tier capped at a couple of documents or a few dozen pages, and a paid tier that stacks one more monthly subscription on top of the Claude, Codex, or OpenCode plan you already pay for. And your library lives in their cloud, not on your machine.
-
-Most of them are also built around the summary: upload, get the takeaways, move on. That's the vibe-researching workflow. pdfpal is built around the reader.
-
-pdfpal cuts out the middleman. It runs entirely on your machine, and every chat, every cross-paper question, goes through the agent CLI you've already got installed and authenticated. No extra fee, no usage caps, no feature gates, no uploads to anyone's cloud.
-
-It's also a CLI with the same project/source/collection model as the web app (the browser and the CLI call the same core code, nothing is reimplemented twice), plus a Claude Code / Codex skill that lets an agent drive the whole thing directly. Here's what that looks like end to end.
-
-## Research with an agent, then read
-
-Finding papers is legwork, and by now agents are better at it than we are: they sweep the literature, follow citation trails, and triage abstracts faster than anyone with twelve tabs open. Reading is the part that's still yours. So pdfpal splits the job: give an agent a topic and it searches on its own, drives the pdfpal CLI through the [Agent skill](#agent-skill-claude-code--codex), and hands you back a project with the papers already fetched, filed into collections, and ready to read.
-
-1. **Ask an agent** (Claude Code, Codex, or anything that can load the skill):
-
-   > Research recent approaches to efficient attention mechanisms, create a pdfpal project called "Efficient Attention", and add the best papers you find.
-
-2. **The agent finds the papers with its own tools**, then drives the real CLI to build the project. This is genuinely what it runs, not a mockup:
-
-   ```bash
-   pdfpal --json project create "Efficient Attention"
-   pdfpal --json source add <project-id> "https://arxiv.org/abs/1706.03762"
-   pdfpal --json source add <project-id> "https://arxiv.org/abs/2009.06732"
-   pdfpal --json collection create <project-id> "Core Papers"
-   pdfpal --json source file <project-id> <source-id> <collection-id>
-   ```
-
-3. **Open it in the browser**, already organized into collections:
-
-   ![Collections](screenshots/6-collections.png)
-
-4. **Read and ask questions inline**, in the same reader shown above, right where the agent left off.
-
-## Features
-
-### Reading & Chat
-- **Split-pane reader**: PDF viewer on the left, chat/notes/related on the right; resizable.
-- **Reading progress**: remembers the last page read for every source and restores it automatically the next time you open the PDF.
-- **Per-source chat**: persistent conversation history per paper, restored across sessions; renders math (KaTeX); web research is handled by the selected agent when supported.
-- **Text selection → ask or highlight**: stuck on a passage? Select it and ask about it right there, grounded in the paper, or save it as a highlight.
-- **Project chat**: ask across multiple sources at once, toggle which sources are in context, or scope to a single collection.
-
-### Organization
-- **Projects**: workspaces for a research topic: sources, notes, chat history.
-- **Collections**: nested folders for organizing sources within a project; drag-and-drop, Expand/Collapse All.
-- **Notes**: markdown notes at the project or source level, rendered by default, edit in place:
-
-  ![Notes](screenshots/5-notes.png)
-- **Highlights**: every annotation across a project, grouped by source, one click back to context.
-
-### Sources & Discovery
-- **Paper search**: search OpenAlex by title, one click to add:
-
-  ![Search](screenshots/3-search.png)
-- **Related papers**: references and citations from Semantic Scholar, with an OpenAlex fallback when needed, one click to add:
-
-  ![Related](screenshots/2-related.png)
-- **Smart PDF resolver**: paste any URL: arXiv, OpenReview, ACL Anthology, PMLR, a DOI link, or a direct `.pdf`; tracking params stripped automatically.
-- **Project-wide full-text search**: SQLite FTS5 across every already-indexed source.
-- **Managed local copies**: PDFs are copied locally; falls back to the source URL if a managed copy is deleted.
-
-### CLI & Agent Automation
-- **Full CLI**: every action above is also a `pdfpal` command, with `--json` for scripting.
-- **Claude Code / Codex skill**: let an agent drive projects, sources, collections, and notes directly (see below).
-
-## Requirements
-
-- Node.js 22 or newer.
-- One supported agent CLI installed and authenticated: `claude`, `codex`, or `opencode`.
-- The selected agent may use its own built-in web-search tools, depending on the agent and its configuration.
-
-## Install and run
-
-```bash
-npm install -g pdfpal
-pdfpal
-```
-
-Running `pdfpal` starts the local Fastify server at `http://localhost:8200` and opens the browser. Use `pdfpal serve --no-open` to suppress the browser.
-
-For development:
-
-```bash
+```sh
 npm ci
 npm run build
 npm start
 ```
 
-## Quickstart
+应用只监听本机，启动时打开带本次授权的页面；若没有自动打开，使用终端显示的启动链接。链接中的会话口令应当保密。
 
-1. Click **New Project** and give it a title.
-2. Click **Add Source** and paste a paper URL (arXiv, OpenReview, ACL Anthology, PMLR, a DOI link, or a direct `.pdf`), or search by title.
-3. Open the source, select the passage you're stuck on to ask about it, or save it as a highlight.
-4. Switch to the **Notes** tab and write what you understood in your own words as a markdown note; it renders as you read it back.
-5. Ask a question across every source in the project from **Project Chat**.
+开发服务：`npm run dev`；不打开浏览器：`node dist/cli/index.js serve --no-open`。
 
-## CLI
+先新建项目，再“添加文献 → 本地 PDF”。主页或阅读页的“AI 设置”可配置命令行、接口地址、模型及密钥。
 
-```bash
-pdfpal project create "My Research"
-pdfpal source add "My Research" https://arxiv.org/abs/1706.03762
-pdfpal collection create "My Research" "Core Papers"
-pdfpal source list "My Research"
-pdfpal note create "My Research" -t "Summary" -c "Key findings..."
-pdfpal ask "My Research" "Compare the main methods"
+WorkBuddy 桌面客户端不等于已提供可直接问答的命令行，需要填写实际可用的命令和参数；不会自动改用 CodeBuddy。DeepSeek Harness 使用 `dsh` headless 配置，认证与工具权限由 Harness 管理。
+
+## Windows 桌面构建
+
+使用同一个 Node 24 环境安装根目录与桌面依赖，避免 SQLite 原生模块 ABI 不匹配。
+
+```sh
+npm ci
+npm run build
+cd desktop
+npm ci
+npm run prepare:runtime
+npm run package
 ```
 
-Commands accept a UUID or an exact case-insensitive title. Ambiguous titles are rejected. Add `--json` for machine-readable output. `pdfpal ask <project>` reads the question from stdin when the question argument is omitted.
+产物写入项目根目录 `release/`。构建需联网下载依赖、Electron、Node 许可及 Windows 资源编辑工具。发行包自带运行环境，使用时无需安装 Node。当前没有发布者数字签名。
 
-## Agent skill (Claude Code / Codex)
+桌面数据：`%APPDATA%/BBGDDG/data`；密钥保护文件：`%APPDATA%/BBGDDG/ai-secret-key.bin`。安装版与便携版共享工作区，卸载保留数据。原 PDFPal 数据不会自动导入或覆盖，可重新导入原 PDF，或另行进行带备份的数据迁移。
 
-`skills/pdfpal-cli/` documents the full CLI (flags, exit codes, selector rules) so an agent can drive it directly; see [Research with an agent, then read](#research-with-an-agent-then-read) above for what that looks like in practice. It does not search for papers itself; that's the agent's job, using its own tools.
+## 命令行与配置
 
-Install it for both Claude Code and Codex (symlinks into `~/.claude/skills/` and `~/.codex/skills/`):
-
-```bash
-npm run skill:install
+```sh
+node dist/cli/index.js --json project create "我的研究"
+node dist/cli/index.js source add "我的研究" "/absolute/path/paper.pdf"
+node dist/cli/index.js note create "我的研究" -t "读书笔记" -c "我的理解"
 ```
 
-Run `npm run skill:uninstall` to remove the symlinks.
+本地执行 `npm link` 后命令名为 `bbgddg`。本项目尚未发布到 npm，请勿把同名第三方包视为本项目。
 
-## Local data
+CLI 默认目录为 `~/.bbgddg`。支持 `BBGDDG_DATA_DIR`、`BBGDDG_DB`、`BBGDDG_PORT`、`BBGDDG_AGENT`、`BBGDDG_MODEL`；工具路径支持 `CLAUDE_BIN`、`CODEX_BIN`、`OPENCODE_BIN`。更多命令见 [CLI skill](skills/bbgddg-cli/SKILL.md)，示例见 [.env.example](.env.example)。应用不会自动读取 .env 文件。
 
-pdfpal uses `~/.pdfpal` by default:
+## 验证与贡献
 
-```text
-~/.pdfpal/
-├── config.json
-├── pdfpal.db
-├── files/       # managed PDF copies
-└── backups/     # automatic pre-migration database backups
-```
-
-New PDFs are copied into `files/`, while extracted text and FTS chunks live in SQLite. If a managed PDF is removed and the source has a URL, the reader downloads and renders the remote PDF without recreating the copy.
-
-Existing databases are migrated in place after an automatic backup. Override the data directory with `PDFPAL_DATA_DIR` or only the database path with `PDFPAL_DB`.
-
-## Configuration
-
-Configuration precedence is command flags, environment variables, `~/.pdfpal/config.json`, then defaults.
-
-```bash
-PDFPAL_AGENT=claude       # claude | codex | opencode
-CLAUDE_BIN=claude
-CODEX_BIN=codex
-OPENCODE_BIN=opencode
-PDFPAL_MODEL=
-PDFPAL_PORT=8200
-PDFPAL_DB=
-SEMANTIC_SCHOLAR_API_KEY=
-```
-
-`SEMANTIC_SCHOLAR_API_KEY` is optional. Semantic Scholar's unauthenticated API shares a small rate limit across every caller on your network, not just you. A [free key](https://www.semanticscholar.org/product/api#api-key-form) is scoped to your own app instead and raises the limit substantially. Used for Related Papers and clean titles for arXiv/DOI links.
-
-Legacy `~/.pdfpal/config.env` is imported automatically on first TypeScript startup.
-
-## Development and tests
-
-```bash
+```sh
 npm run typecheck
 npm test
+npm run test:security
 npm run build
-cd frontend && npx playwright test
+cd frontend
+npx playwright install chromium
+npx playwright test
 ```
 
-`npm test` runs Node's test runner through `tsx`, fails when no tests are found, and enforces the configured c8 coverage thresholds. Playwright starts the compiled Fastify server using an isolated temporary data directory. Set `PLAYWRIGHT_EXECUTABLE_PATH` to use a system Chromium installation.
+Windows 原生测试见 [desktop/README.md](desktop/README.md)。测试使用临时数据与模拟接口，不消耗真实 API 用量。
 
-### Project loops
+结构：src/core 为共享服务，src/server 为本机 API，src/cli 为命令行，frontend 为 React 界面，desktop 为 Electron。参见 [贡献说明](CONTRIBUTING.md) 与 [发布检查](docs/RELEASING.md)。
 
-Reusable agent workflows for this repository live in [`LOOPS.md`](LOOPS.md). [Loopy](https://signals.forwardfuture.com/loop-library/) is optional contributor tooling and is not required to build or run pdfpal.
+## 许可与致谢
 
-```bash
-npx skills add Forward-Future/loopy --skill loopy -g
-```
-
-Run the saved local test-quality workflow with:
-
-```text
-$loopy run the saved Local test-quality pass loop
-```
-
-## Architecture
-
-The browser and CLI are two entry points over the same TypeScript services. The browser reaches those services through Fastify over HTTP; the CLI calls them directly. Both paths share configuration, storage, retrieval, chat history, and agent adapters.
-
-```text
-React SPA ── HTTP ──▶ Fastify API ──┐
-                                    ├── TypeScript core
-pdfpal CLI ─────────────────────────┘          │
-                                              ├── Projects, sources, collections, notes, chat
-                                              ├── SQLite + FTS5 retrieval and history
-                                              ├── Managed PDF copies and extracted text
-                                              ├── Claude / Codex / OpenCode subprocesses
-                                              └── OpenAlex / Semantic Scholar integrations
-```
-
-### Main data paths
-
-- **Ingest**: `SourceService` resolves a local file or URL, extracts its text, stores a managed PDF copy, and chunks/indexes the text in SQLite FTS5.
-- **Ask**: `ChatService` scopes retrieval by project, source, or collection, builds a grounded prompt from matching passages, invokes the selected agent CLI, and persists the answer and source references.
-- **Use**: React pages call the Fastify API; CLI commands and [`skills/pdfpal-cli`](skills/pdfpal-cli/) automate the same core operations. An agent subprocess may use its own web-search tools when supported by that agent.
-
-The implementation follows that split:
-
-- [`frontend/src`](frontend/src/) contains the reader, chat, projects, notes, collections, and source-discovery UI.
-- [`src/server`](src/server/) exposes the HTTP API and serves the built frontend.
-- [`src/cli`](src/cli/) defines the scriptable `pdfpal` commands.
-- [`src/core`](src/core/) owns projects, sources, collections, notes, retrieval, chat, PDF handling, configuration, and agent invocation.
-
-The npm package contains the compiled TypeScript server/CLI and the built React frontend. Runtime state stays local under `~/.pdfpal` by default, while external network edges are limited to source URLs, OpenAlex, Semantic Scholar, and capabilities provided by the selected agent. It is intended for local, single-user operation.
-
-*AI to read deeper, not to avoid reading.*
-
-## 中文桌面版 2.1.0：AI 服务与用量
-
-主页和 PDF 阅读页均可选择 AI 服务；已检测到可调用命令或完整 API 配置的选项亮色显示。命令行工具仍需在各自工具中完成登录。
-
-- Codex、Claude Code、DeepSeek Harness（`dsh`）与 OpenCode 支持非交互调用。CLI 路径与模型可在 AI 设置中调整；Harness 的模型由其自身配置决定。
-- 腾讯 WorkBuddy 的公开文档尚未确认可供第三方问答的非交互 CLI。保留独立入口，可配置已验证的命令或适配器路径、JSON 参数数组；问题通过标准输入传入，输出须为纯文本或 Claude Code 格式的 JSON result。安装桌面客户端本身不代表可直接调用。
-- 支持 DeepSeek、OpenAI 兼容接口和 Claude API。填写接口基础地址、服务商模型名称和密钥后保存，连接测试读取模型列表，问答时才生成回答。兼容接口通常需包含 `/v1`；Claude 默认使用 `https://api.anthropic.com/v1`。
-- 每条回答保存服务、模型及工具实际返回的 token 数；主页显示本软件累计用量。未回传的数据标为未知，不推算账户订阅额度。DeepSeek 官方 API 的余额可在设置中主动查询；CLI 客户端返回的费用标为估算。
-- 密钥不回显，使用 AES-GCM 本机加密。Windows 桌面版另以系统凭据保护主密钥，数据仍位于原用户数据目录，升级保留文献与笔记。源码开发模式的本地密钥文件应和数据目录一起保护。
-
-本地开发约定见 `AGENTS.md`：每轮修改验证后自动提交 Git，不自动推送。
-
-## 本地接口访问保护（2.1.1）
-
-桌面版每次启动生成随机会话口令，通过 HttpOnly、SameSite=Strict cookie 自动授权，不需要手动登录。文献、笔记、AI 配置、问答与静态文件均要求有效会话；拒绝非本机 Host、跨站来源及来源缺失的 cookie 修改请求。浏览器模式请使用 serve 输出的当前启动链接，其片段中的口令不会进入 HTTP 请求日志；该链接仅供本人使用，重启后失效。未授权直接访问本机端口会返回 401。页面限制脚本与网络来源，拒绝嵌入其他页面。
+新增改动采用 MIT，见 [LICENSE](LICENSE)。上游 package.json 声明 MIT，但没有独立 LICENSE；该事实和作者 Andre Paim Lemos 的来源记录保留在 [NOTICE.md](NOTICE.md)。第三方组件保留各自许可。源码不包含个人文献、数据库或凭据。

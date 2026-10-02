@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -100,6 +100,8 @@ export default function PdfViewer({
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(requestedPage)
   const [restored, setRestored] = useState(false)
+  const [pageLayoutVersion, setPageLayoutVersion] = useState(0)
+  const notifyPageRendered = useCallback(() => setPageLayoutVersion(value => value + 1), [])
   const [highlightColor,setHighlightColor]=useState('yellow')
   const [pageDraft,setPageDraft]=useState('')
   const [activeHighlight,setActiveHighlight]=useState<Annotation|null>(null)
@@ -237,12 +239,16 @@ export default function PdfViewer({
       const scrollRect = scroll.getBoundingClientRect()
       const targetRect = target.getBoundingClientRect()
       scroll.scrollTop += targetRect.top - scrollRect.top - 16
+      // Loading pages begin with estimated heights. Align again after their
+      // actual canvases settle, before reporting restored reading progress.
+      if (target.dataset.pdfReady !== 'true' ||
+          scroll.querySelector('[data-pdf-mounted="true"][data-pdf-ready="false"]')) return
       currentPageRef.current = page
       setCurrentPage(page)
       setRestored(true)
     }, 0)
     return () => clearTimeout(timer)
-  }, [containerWidth, initialPage, numPages, restored, url])
+  }, [containerWidth, initialPage, numPages, restored, url, pageLayoutVersion])
 
   // A narrow observation band through the viewport center defines the current
   // reading page. This stays correct for mixed page sizes and avoids doing a
@@ -335,6 +341,7 @@ export default function PdfViewer({
                 pageNumber={pageNum}
                 pageWidth={pageWidth}
                 pageScale={pageScale}
+                onPageRendered={notifyPageRendered}
                 annotations={pageAnnotations}
                 onHighlightClick={annotation=>{setActiveHighlight(annotation);setActionError('');onHighlightClick?.(annotation)}}
               />
@@ -393,6 +400,7 @@ interface LazyPdfPageProps {
   pageScale?: number
   annotations: Annotation[]
   onHighlightClick?: (annotation: Annotation) => void
+  onPageRendered?: () => void
 }
 
 // The viewer can contain hundreds of pages. Mounting a canvas and text layer
@@ -402,10 +410,16 @@ interface LazyPdfPageProps {
 // lightweight placeholder and only mount pages as they approach the viewport.
 const PAGE_ASPECT_RATIO = 1.53
 
-function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighlightClick }: LazyPdfPageProps) {
+function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighlightClick, onPageRendered }: LazyPdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1)
   const [aspectRatio,setAspectRatio]=useState(PAGE_ASPECT_RATIO)
+  const [renderReady, setRenderReady] = useState(false)
+  useEffect(() => setRenderReady(false), [pageWidth, pageScale])
+  const handleRenderSuccess = useCallback(() => {
+    setRenderReady(true)
+    onPageRendered?.()
+  }, [onPageRendered])
 
   useEffect(() => {
     if (shouldRender || !pageRef.current) return
@@ -429,6 +443,8 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
     <div
       ref={pageRef}
       data-pdf-page={pageNumber}
+      data-pdf-mounted={shouldRender}
+      data-pdf-ready={renderReady}
       aria-label={`第 ${pageNumber} 页`}
       style={{ display: 'flex', justifyContent: 'center', marginBottom: 12, position: 'relative', minHeight: placeholderHeight }}
     >
@@ -439,6 +455,7 @@ function LazyPdfPage({ pageNumber, pageWidth, pageScale, annotations, onHighligh
             width={pageWidth}
             scale={pageScale}
             onLoadSuccess={page=>{const viewport=page.getViewport({scale:1});setAspectRatio(viewport.height/viewport.width)}}
+            onRenderSuccess={handleRenderSuccess}
             renderTextLayer={true}
             renderAnnotationLayer={true}
             loading={<LoadingPage />}

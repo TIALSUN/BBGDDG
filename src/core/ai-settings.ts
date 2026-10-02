@@ -2,8 +2,8 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { z } from 'zod'
-import type { PdfpalConfig } from './config.js'
-import { PdfpalError } from './types.js'
+import type { BbgddgConfig } from './config.js'
+import { BbgddgError } from './types.js'
 import { getDesktopMasterKey } from './ai-secrets.js'
 
 export const cliIds = ['codex', 'claude', 'workbuddy', 'deepseek-harness', 'opencode'] as const
@@ -30,12 +30,12 @@ export function validateBaseUrl(value: string): string {
     if (url.username || url.password || url.search || url.hash) throw new Error()
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname))) throw new Error()
     return url.href.replace(/\/$/, '')
-  } catch { throw new PdfpalError('INVALID_API_URL', '接口地址需要是 HTTPS 地址；本机服务可以使用 HTTP。请填写基础地址，不要包含密钥、查询参数或完整的聊天接口路径。', 2) }
+  } catch { throw new BbgddgError('INVALID_API_URL', '接口地址需要是 HTTPS 地址；本机服务可以使用 HTTP。请填写基础地址，不要包含密钥、查询参数或完整的聊天接口路径。', 2) }
 }
 export class AiSettingsStore {
   private readonly file: string
   private readonly usageFile: string
-  constructor(private readonly config: PdfpalConfig) {
+  constructor(private readonly config: BbgddgConfig) {
     this.file = path.join(config.dataDir, 'ai-settings.json')
     this.usageFile = path.join(config.dataDir, 'ai-usage.json')
   }
@@ -69,7 +69,7 @@ export class AiSettingsStore {
       const decipher = createDecipheriv('aes-256-gcm', this.encryptionKey(), bytes.subarray(0, 12))
       decipher.setAuthTag(bytes.subarray(12, 28))
       return Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8')
-    } catch { throw new PdfpalError('KEY_UNAVAILABLE', '无法读取已保存的密钥，请在 AI 设置中重新输入并保存。', 2) }
+    } catch { throw new BbgddgError('KEY_UNAVAILABLE', '无法读取已保存的密钥，请在 AI 设置中重新输入并保存。', 2) }
   }
   profile(id: ApiId) { return this.read().api.find(profile => profile.id === id)! }
   cli(id: CliId) { return this.read().cli[id] }
@@ -79,7 +79,7 @@ export class AiSettingsStore {
     return { defaultProvider: value.defaultProvider, cli: value.cli, api: value.api.map(({ encryptedKey, ...profile }) => ({ ...profile, hasKey: !!encryptedKey })) }
   }
   saveApi(id: string, input: unknown) {
-    if (!apiIds.includes(id as ApiId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
+    if (!apiIds.includes(id as ApiId)) throw new BbgddgError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
     const body = z.object({ baseUrl: z.string().min(1).max(1000), model: z.string().trim().min(1).max(160), apiKey: z.string().trim().max(4096).optional(), clearKey: z.boolean().optional() }).parse(input)
     const value = this.read(), profile = value.api.find(profile => profile.id === id)!
     profile.baseUrl = validateBaseUrl(body.baseUrl); profile.model = body.model
@@ -89,14 +89,14 @@ export class AiSettingsStore {
     return this.publicSettings()
   }
   saveCli(id: string, input: unknown) {
-    if (!cliIds.includes(id as CliId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个命令行工具。', 2)
+    if (!cliIds.includes(id as CliId)) throw new BbgddgError('UNKNOWN_PROVIDER', '找不到这个命令行工具。', 2)
     const body = z.object({ command: z.string().trim().max(2000), args: z.array(z.string().max(1000)).max(30).optional(), model: z.string().trim().max(160).default('') }).parse(input)
-    if (body.command.includes('\n') || body.command.includes('\r')) throw new PdfpalError('INVALID_COMMAND', '请填写单个可执行文件路径或命令名称。', 2)
+    if (body.command.includes('\n') || body.command.includes('\r')) throw new BbgddgError('INVALID_COMMAND', '请填写单个可执行文件路径或命令名称。', 2)
     const value = this.read(); value.cli[id as CliId] = body; this.write(value)
     return this.publicSettings()
   }
   select(id: string) {
-    if (![...cliIds, ...apiIds].includes(id as ProviderId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 AI 服务。', 2)
+    if (![...cliIds, ...apiIds].includes(id as ProviderId)) throw new BbgddgError('UNKNOWN_PROVIDER', '找不到这个 AI 服务。', 2)
     const value = this.read(); value.defaultProvider = id as ProviderId; this.write(value)
   }
   private summaries(): Record<string, UsageSummary> {

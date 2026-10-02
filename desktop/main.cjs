@@ -4,9 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { randomBytes } = require('node:crypto');
 
-app.setName('PDFPal');
-if (process.env.PDFPAL_DESKTOP_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.PDFPAL_DESKTOP_USER_DATA_DIR));
-app.setAppUserModelId('local.pdfpal.desktop');
+app.setName('BBGDDG');
+if (process.env.BBGDDG_DESKTOP_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.BBGDDG_DESKTOP_USER_DATA_DIR));
+app.setAppUserModelId('local.bbgddg.desktop');
 let window, service, log, origin, accessToken, quitting = false;
 const runtime = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'runtime');
 const dataDir = path.join(app.getPath('userData'), 'data');
@@ -26,7 +26,7 @@ function startService() {
     if (fs.existsSync(logPath) && fs.statSync(logPath).size > 5 * 1024 * 1024) fs.renameSync(logPath, logPath + '.old');
     log = fs.createWriteStream(logPath, { flags: 'a' });
     const codex = detectCodex();
-    const env = { ...process.env, PDFPAL_DATA_DIR: dataDir };
+    const env = { ...process.env, BBGDDG_DATA_DIR: dataDir };
     // The master key is protected by Windows DPAPI through Electron safeStorage.
     const protectedKeyPath = path.join(app.getPath('userData'), 'ai-secret-key.bin');
     let masterKey;
@@ -39,9 +39,9 @@ function startService() {
       }
       masterKey = safeStorage.decryptString(fs.readFileSync(protectedKeyPath));
     } else throw new Error('Windows 密钥保护不可用，无法安全启动。请重新登录系统后再试。');
-    delete env.PDFPAL_AI_SECRET_KEY;
-    delete env.PDFPAL_SESSION_TOKEN;
-    if (codex) { env.CODEX_BIN = codex; env.PDFPAL_AGENT ||= 'codex'; }
+    delete env.BBGDDG_AI_SECRET_KEY;
+    delete env.BBGDDG_SESSION_TOKEN;
+    if (codex) { env.CODEX_BIN = codex; env.BBGDDG_AGENT ||= 'codex'; }
     delete env.ELECTRON_RUN_AS_NODE;
     service = fork(path.join(runtime, 'backend', 'backend.mjs'), [], {
       execPath: path.join(runtime, 'node.exe'), cwd: path.join(runtime, 'backend'),
@@ -61,7 +61,7 @@ function startService() {
       clearTimeout(timer);
       if (!origin) reject(new Error(`本地文献服务未能启动 (${code ?? signal})。`));
       else if (!quitting) {
-        dialog.showErrorBox('PDFPal', '本地服务意外停止。请重新打开 PDFPal。日志位置：\n' + logPath);
+        dialog.showErrorBox('BBGDDG', '本地服务意外停止。请重新打开 BBGDDG。日志位置：\n' + logPath);
         app.quit();
       }
     });
@@ -88,8 +88,8 @@ function setMenu() {
     ] },
     { label: '帮助', submenu: [
       { label: '查看运行日志', click: () => void shell.openPath(logPath) },
-      { label: '关于 PDFPal', click: () => void dialog.showMessageBox(window, {
-        type: 'info', title: '关于 PDFPal', message: `PDFPal ${app.getVersion()} 中文桌面版`,
+      { label: '关于 BBGDDG', click: () => void dialog.showMessageBox(window, {
+        type: 'info', title: '关于 BBGDDG', message: `BBGDDG ${app.getVersion()} 中文桌面版`,
         detail: '本地文献库 · PDF 阅读 · 高亮与注释\n\nAI 问答支持本机命令行工具与自填 API。可在主页或阅读页的 AI 设置中配置。\n\n文献与笔记保存于：\n' + dataDir
       }) }
     ] }
@@ -97,7 +97,7 @@ function setMenu() {
 }
 async function createWindow() {
   window = new BrowserWindow({
-    title: 'PDFPal', width: 1440, height: 960, minWidth: 850, minHeight: 620,
+    title: 'BBGDDG', width: 1440, height: 960, minWidth: 850, minHeight: 620,
     backgroundColor: '#13151a', icon: path.join(__dirname, 'assets', 'icon.png'),
     autoHideMenuBar: true, show: false,
     webPreferences: { nodeIntegration: false, contextIsolation: true, sandbox: true, webSecurity: true }
@@ -118,7 +118,7 @@ async function createWindow() {
   });
   await window.loadFile(path.join(__dirname, 'loading.html'));
   const url = await startService();
-  await window.webContents.session.cookies.set({ url, name: 'pdfpal_session', value: accessToken, httpOnly: true, sameSite: 'strict', path: '/' });
+  await window.webContents.session.cookies.set({ url, name: 'bbgddg_session', value: accessToken, httpOnly: true, sameSite: 'strict', path: '/' });
   await window.loadURL(url);
 }
 async function stopService() {
@@ -139,7 +139,7 @@ else {
   app.whenReady().then(async () => {
     setMenu();
     try { await createWindow(); }
-    catch (error) { dialog.showErrorBox('PDFPal 启动失败', error.message + '\n\n可查看日志：' + logPath); app.quit(); }
+    catch (error) { dialog.showErrorBox('BBGDDG 启动失败', error.message + '\n\n可查看日志：' + logPath); app.quit(); }
   });
   app.on('window-all-closed', () => app.quit());
   app.on('before-quit', event => {

@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
 import { createProjectViaApi } from './helpers';
 
-test('page loads and shows PDFPal branding', async ({ page }) => {
+test('page loads and shows BBGDDG branding', async ({ page }) => {
   await page.goto('/');
-  await expect(page.locator('.brand')).toContainText('PDFPal');
+  await expect(page.locator('.brand')).toContainText('BBGDDG');
 });
 test('home page shows the Chinese project heading', async ({ page }) => {
   await page.goto('/');

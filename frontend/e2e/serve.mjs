@@ -4,7 +4,7 @@ import path from 'node:path';
 import { loadConfig } from '../../dist/core/config.js';
 import { buildServer } from '../../dist/server/app.js';
 // This deterministic token is restricted to the isolated E2E test server.
-const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'pdfpal-e2e-'));
+const dataDir=fs.mkdtempSync(path.join(os.tmpdir(),'bbgddg-e2e-'));
 const server=await buildServer(loadConfig({dataDir,port:8201}),{accessToken:'e'.repeat(64)});
 await server.listen({host:'127.0.0.1',port:8201});
 let closed=false;

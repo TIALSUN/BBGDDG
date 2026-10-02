@@ -1,4 +1,4 @@
-// Centralized API client for pdfpal v2
+// Centralized API client for bbgddg v2
 
 const BASE = '/api'
 

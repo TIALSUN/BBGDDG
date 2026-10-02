@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import fs from 'node:fs'
 import { Command, Option } from 'commander'
 import type { Database } from 'better-sqlite3'
 import { loadConfig } from '../core/config.js'
@@ -15,9 +16,9 @@ import { confirm, print, readStdin, reportError } from './output.js'
 import { startServer } from '../server/app.js'
 
 const program = new Command()
-  .name('pdfpal')
+  .name('bbgddg')
   .description('Local PDF research assistant')
-  .version('2.0.0')
+  .version(JSON.parse(fs.readFileSync(new URL('../../package.json', import.meta.url), 'utf8')).version)
   .option('--json', 'emit machine-readable JSON')
 
 let database: Database | undefined

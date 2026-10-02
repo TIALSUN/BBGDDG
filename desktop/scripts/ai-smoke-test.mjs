@@ -12,7 +12,7 @@ const mock=http.createServer(async(req,res)=>{for await(const _ of req){}res.set
 mock.listen(0,'127.0.0.1');await once(mock,'listening');
 const userData=fs.mkdtempSync(path.join(work,'desktop-ai-test-')),secret='synthetic-desktop-test-only';
 const executablePath=process.argv[2]||path.join(desktop,'node_modules/electron/dist/electron.exe');
-const launch=()=>_electron.launch({executablePath,args:process.argv[2]?[]:[desktop],env:{...process.env,PDFPAL_DESKTOP_USER_DATA_DIR:userData},timeout:60000});
+const launch=()=>_electron.launch({executablePath,args:process.argv[2]?[]:[desktop],env:{...process.env,BBGDDG_DESKTOP_USER_DATA_DIR:userData},timeout:60000});
 let electron,origin,api;
 try {
  electron=await launch();let page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
@@ -28,7 +28,7 @@ try {
  const textarea=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await textarea.fill('验证本地 PDF 问答');await textarea.press('Enter');await page.locator('.ai-message-usage').filter({hasText:'desktop-test-model'}).waitFor();
  assert.match(await page.locator('.ai-message-usage').innerText(),/55/);
  const probeFile=path.join(userData,'env-probe.mjs');
- fs.writeFileSync(probeFile,"process.stdin.resume();console.log(JSON.stringify({result:JSON.stringify(Object.keys(process.env).filter(key=>/^PDFPAL_/i.test(key)))}))");
+ fs.writeFileSync(probeFile,"process.stdin.resume();console.log(JSON.stringify({result:JSON.stringify(Object.keys(process.env).filter(key=>/^BBGDDG_/i.test(key)))}))");
  assert.equal((await api.put(origin+'/api/ai/cli/claude',{data:{command:probeFile,model:''}})).status(),200);
  const envProbe=await api.post(origin+'/api/chat',{data:{project_id:project.id,source_id:source.id,message:'合成环境隔离验证',agent:'claude'}});
  assert.equal(envProbe.status(),200);assert.match(await envProbe.text(),/"text":"\[\]"/);

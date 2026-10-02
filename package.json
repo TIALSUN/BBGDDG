@@ -1,20 +1,23 @@
 {
-  "name": "pdfpal",
-  "version": "2.1.1",
-  "description": "Local PDF research assistant and CLI",
+  "name": "bbgddg",
+  "version": "1.0.0",
+  "description": "BBGDDG · 中文深色 PDF 阅读、笔记与 AI 研究工作台",
   "license": "MIT",
   "type": "module",
   "workspaces": [
     "frontend"
   ],
   "bin": {
-    "pdfpal": "dist/cli/index.js"
+    "bbgddg": "dist/cli/index.js"
   },
   "files": [
     "dist/",
     "frontend/dist/",
     "skills/",
-    "scripts/install-skill.sh"
+    "scripts/install-skill.sh",
+    "LICENSE",
+    "NOTICE.md",
+    "SECURITY.md"
   ],
   "engines": {
     "node": ">=22"
@@ -33,7 +36,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "prepare": "npm run build",
     "skill:install": "bash scripts/install-skill.sh",
-    "skill:uninstall": "bash scripts/install-skill.sh --uninstall"
+    "skill:uninstall": "bash scripts/install-skill.sh --uninstall",
+    "test:security": "node --import tsx --test test/unit/ai-secrets.test.ts test/unit/agents.test.ts test/integration/local-access.test.ts test/integration/ai-api.test.ts",
+    "icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.1.0",
@@ -48,10 +53,13 @@
     "zod": "^4.0.15"
   },
   "devDependencies": {
+    "@napi-rs/canvas": "0.1.100",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.2.1",
     "c8": "^11.0.0",
     "tsx": "^4.20.3",
     "typescript": "~5.9.2"
-  }
+  },
+  "author": "BBGDDG contributors",
+  "private": true
 }

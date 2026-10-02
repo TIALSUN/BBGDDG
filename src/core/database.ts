@@ -3,7 +3,7 @@ import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 import Database from 'better-sqlite3'
 import type { Database as DatabaseType } from 'better-sqlite3'
-import type { PdfpalConfig } from './config.js'
+import type { BbgddgConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
 
 const CURRENT_SCHEMA = 8
@@ -16,21 +16,21 @@ function tableExists(db: DatabaseType, table: string): boolean {
   return Boolean(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table))
 }
 
-function backupExisting(db: DatabaseType, config: PdfpalConfig): void {
+function backupExisting(db: DatabaseType, config: BbgddgConfig): void {
   if (!fs.existsSync(config.dbPath) || fs.statSync(config.dbPath).size === 0) return
   const existing = tableExists(db, 'schema_migrations')
     ? (db.prepare('SELECT MAX(version) AS version FROM schema_migrations').get() as { version: number | null }).version ?? 0
     : 0
   if (existing >= CURRENT_SCHEMA) return
   const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  const destination = path.join(config.backupsDir, `pdfpal-${stamp}.db`)
+  const destination = path.join(config.backupsDir, `bbgddg-${stamp}.db`)
   // VACUUM INTO accepts a SQL string literal, not a JSON/double-quoted
   // identifier. Escape the path explicitly because this is a local path we
   // generated, not user-provided SQL.
   db.exec(`VACUUM INTO '${destination.replaceAll("'", "''")}'`)
 }
 
-export function openDatabase(config: PdfpalConfig): DatabaseType {
+export function openDatabase(config: BbgddgConfig): DatabaseType {
   ensureDataDirectories(config)
   const db = new Database(config.dbPath)
   db.pragma('journal_mode = WAL')

@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { Database } from 'better-sqlite3'
 import { ProjectService } from './projects.js'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 
 const now = () => new Date().toISOString()
 
@@ -34,14 +34,14 @@ export class CollectionService {
     const exact = this.db.prepare('SELECT * FROM collections WHERE project_id=? AND id=?').get(project.id, selector) as Collection | undefined
     if (exact) return exact
     const matches = this.db.prepare('SELECT * FROM collections WHERE project_id=? AND name=? COLLATE NOCASE ORDER BY created_at').all(project.id, selector) as Collection[]
-    if (!matches.length) throw new PdfpalError('COLLECTION_NOT_FOUND', `Collection not found: ${selector}`, 3)
-    if (matches.length > 1) throw new PdfpalError('AMBIGUOUS_COLLECTION', `Collection name is ambiguous: ${selector}`, 4, matches.map(({ id, name }) => ({ id, name })))
+    if (!matches.length) throw new BbgddgError('COLLECTION_NOT_FOUND', `Collection not found: ${selector}`, 3)
+    if (matches.length > 1) throw new BbgddgError('AMBIGUOUS_COLLECTION', `Collection name is ambiguous: ${selector}`, 4, matches.map(({ id, name }) => ({ id, name })))
     return matches[0]!
   }
 
   create(projectSelector: string, name: string, parentSelector?: string): Collection {
     const project = this.projects.resolve(projectSelector)
-    if (!name.trim()) throw new PdfpalError('INVALID_NAME', 'Collection name cannot be empty', 2)
+    if (!name.trim()) throw new BbgddgError('INVALID_NAME', 'Collection name cannot be empty', 2)
     const parent = parentSelector ? this.resolve(project.id, parentSelector) : null
     const position = (this.db.prepare('SELECT COALESCE(MAX(position),-1)+1 next FROM collections WHERE project_id=? AND parent_id IS ?').get(project.id, parent?.id ?? null) as { next: number }).next
     const collection: Collection = { id: randomUUID(), project_id: project.id, parent_id: parent?.id ?? null, name: name.trim(), position, created_at: now() }
@@ -51,7 +51,7 @@ export class CollectionService {
 
   rename(projectSelector: string, selector: string, name: string): Collection {
     const collection = this.resolve(projectSelector, selector)
-    if (!name.trim()) throw new PdfpalError('INVALID_NAME', 'Collection name cannot be empty', 2)
+    if (!name.trim()) throw new BbgddgError('INVALID_NAME', 'Collection name cannot be empty', 2)
     this.db.prepare('UPDATE collections SET name=? WHERE id=?').run(name.trim(), collection.id)
     return { ...collection, name: name.trim() }
   }
@@ -61,7 +61,7 @@ export class CollectionService {
     const collection = this.resolve(projectSelector, selector)
     const parent = parentSelector ? this.resolve(collection.project_id, parentSelector) : null
     if (parent && this.descendantIds(collection.id).includes(parent.id))
-      throw new PdfpalError('COLLECTION_CYCLE', 'A collection cannot be moved inside itself or one of its descendants', 4)
+      throw new BbgddgError('COLLECTION_CYCLE', 'A collection cannot be moved inside itself or one of its descendants', 4)
     const position = (this.db.prepare('SELECT COALESCE(MAX(position),-1)+1 next FROM collections WHERE project_id=? AND parent_id IS ?').get(collection.project_id, parent?.id ?? null) as { next: number }).next
     this.db.prepare('UPDATE collections SET parent_id=?, position=? WHERE id=?').run(parent?.id ?? null, position, collection.id)
     return { ...collection, parent_id: parent?.id ?? null, position }

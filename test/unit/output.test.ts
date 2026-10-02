@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { confirm, print } from '../../src/cli/output.js'
-import { PdfpalError } from '../../src/core/types.js'
+import { BbgddgError } from '../../src/core/types.js'
 
 test('print emits JSON when requested', () => {
   let output = ''
@@ -12,6 +12,6 @@ test('print emits JSON when requested', () => {
 })
 
 test('destructive confirmation is required for noninteractive execution', async () => {
-  await assert.rejects(() => confirm('Delete project', false, false), (error: unknown) => error instanceof PdfpalError && error.code === 'CONFIRMATION_REQUIRED')
+  await assert.rejects(() => confirm('Delete project', false, false), (error: unknown) => error instanceof BbgddgError && error.code === 'CONFIRMATION_REQUIRED')
   await confirm('Delete project', true, false)
 })

@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 
 const S2_BASE = 'https://api.semanticscholar.org/graph/v1'
 const S2_FIELDS = 'title,authors,year,externalIds,openAccessPdf,venue,citationCount'
@@ -303,7 +303,7 @@ function cachedProvider(rows: Array<Record<string, unknown>>): RelatedProvider {
 
 export async function relatedPapers(db: Database, projectId: string, sourceId: string, apiKey = '', refresh = false) {
   const source = db.prepare('SELECT url,title FROM sources WHERE id=? AND project_id=?').get(sourceId, projectId) as { url: string | null; title: string | null } | undefined
-  if (!source) throw new PdfpalError('SOURCE_NOT_FOUND', 'Source not found', 3)
+  if (!source) throw new BbgddgError('SOURCE_NOT_FOUND', 'Source not found', 3)
   if (!refresh) {
     const cached = db.prepare('SELECT * FROM source_related WHERE source_id=? ORDER BY relation,id').all(sourceId) as Array<Record<string, unknown>>
     if (cached.length) return { references: cached.filter(row => row.relation === 'reference'), citations: cached.filter(row => row.relation === 'citation'), cached: true, provider: cachedProvider(cached) }

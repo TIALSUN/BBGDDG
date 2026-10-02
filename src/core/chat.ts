@@ -1,13 +1,13 @@
 import { randomUUID } from 'node:crypto'
 import type { Database } from 'better-sqlite3'
-import type { PdfpalConfig } from './config.js'
+import type { BbgddgConfig } from './config.js'
 import { AgentService, type AgentName } from './agents.js'
 import { CollectionService } from './collections.js'
 import { ProjectService } from './projects.js'
 import { RetrievalService } from './retrieval.js'
 import { SourceService } from './sources.js'
 import type { AskResult, Passage } from './types.js'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 import fs from 'node:fs'
 import { extractPdf } from './pdf.js'
 import type { AiUsage } from './ai-settings.js'
@@ -28,7 +28,7 @@ export class ChatService {
   private readonly retrieval: RetrievalService
   private readonly agents: AgentService
 
-  constructor(private readonly db: Database, private readonly config: PdfpalConfig) {
+  constructor(private readonly db: Database, private readonly config: BbgddgConfig) {
     this.projects = new ProjectService(db)
     this.sources = new SourceService(db, config)
     this.collections = new CollectionService(db)
@@ -37,7 +37,7 @@ export class ChatService {
   }
 
   async ask(projectSelector: string, question: string, options: AskOptions = {}): Promise<AskResult> {
-    if (!question.trim()) throw new PdfpalError('EMPTY_QUESTION', 'Question cannot be empty', 2)
+    if (!question.trim()) throw new BbgddgError('EMPTY_QUESTION', 'Question cannot be empty', 2)
     const project = this.projects.resolve(projectSelector)
     const selected = (options.sourceSelectors ?? []).map(selector => this.sources.resolve(project.id, selector))
     // A collection scopes retrieval to every source filed anywhere beneath it,
@@ -65,7 +65,7 @@ export class ChatService {
       const text = source.pdf_text || (await extractPdf(fs.readFileSync(pdfPath))).text
       return [{ path: pdfPath, title: source.title ?? 'Source', text }]
     }))).flat()
-    if (!passages.length && !documents.length) throw new PdfpalError('NO_CONTEXT', 'No indexed source text or local PDF is available for this project', 4)
+    if (!passages.length && !documents.length) throw new BbgddgError('NO_CONTEXT', 'No indexed source text or local PDF is available for this project', 4)
     const history = this.history(project.id, selected.length === 1 ? selected[0]!.id : undefined).slice(-10)
     const context = passages.reduce((out, passage) => {
       const block = `\n[Source: ${passage.source_title}; page ${passage.page_number}]\n${passage.content}\n`

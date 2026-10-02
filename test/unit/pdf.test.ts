@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { excerptFromText, resolvePdf, rewritePdfUrl, titleFromLines } from '../../src/core/pdf.js'
-import { PdfpalError } from '../../src/core/types.js'
+import { BbgddgError } from '../../src/core/types.js'
 
 test('titleFromLines picks the largest-font line, not just the first real line', () => {
   // Regression: extractPdf used to join every line's text with spaces before
@@ -107,10 +107,10 @@ test('resolvePdf reports HTTP and missing-link failures', async () => {
   try {
     globalThis.fetch = (async () => new Response('no', { status: 404 })) as typeof fetch
     await assert.rejects(() => resolvePdf('https://example.test/missing'),
-      (error: unknown) => error instanceof PdfpalError && error.code === 'PDF_FETCH_FAILED')
+      (error: unknown) => error instanceof BbgddgError && error.code === 'PDF_FETCH_FAILED')
     globalThis.fetch = (async () => new Response('<html>none</html>', { status: 200, headers: { 'content-type': 'text/html' } })) as typeof fetch
     await assert.rejects(() => resolvePdf('https://example.test/article'),
-      (error: unknown) => error instanceof PdfpalError && error.code === 'PDF_LINK_NOT_FOUND')
+      (error: unknown) => error instanceof BbgddgError && error.code === 'PDF_LINK_NOT_FOUND')
   } finally { globalThis.fetch = original }
 })
 
@@ -119,6 +119,6 @@ test('resolvePdf turns aborts into actionable timeout errors', async () => {
   try {
     globalThis.fetch = (async () => { throw new DOMException('timed out', 'TimeoutError') }) as typeof fetch
     await assert.rejects(() => resolvePdf('https://example.test/slow.pdf'),
-      (error: unknown) => error instanceof PdfpalError && error.code === 'PDF_FETCH_TIMEOUT' && /example\.test/.test(error.message))
+      (error: unknown) => error instanceof BbgddgError && error.code === 'PDF_FETCH_TIMEOUT' && /example\.test/.test(error.message))
   } finally { globalThis.fetch = original }
 })

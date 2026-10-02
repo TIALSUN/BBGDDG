@@ -11,8 +11,8 @@ test.describe('Notes management', () => {
 
     await page.goto(`/projects/${project.id}`);
     // Switch to Notes tab
-    await page.getByRole('tab', { name: 'Notes' }).click();
-    await expect(page.locator('text=No notes yet')).toBeVisible();
+    await page.getByRole('button', { name: '笔记', exact: true }).click();
+    await expect(page.locator('text=暂无笔记。')).toBeVisible();
   });
 
   test('create a new note via button', async ({ page }) => {
@@ -20,16 +20,16 @@ test.describe('Notes management', () => {
 
     await page.goto(`/projects/${project.id}`);
     // Switch to Notes tab
-    await page.getByRole('tab', { name: 'Notes' }).click();
+    await page.getByRole('button', { name: '笔记', exact: true }).click();
 
     // Click "New Note" button
-    await page.getByRole('button', { name: /New Note/ }).click();
+    await page.getByRole('button', { name: /新建笔记/ }).click();
 
     // Should navigate to note editor
     await page.waitForURL(`**/projects/${project.id}/notes/**`);
 
     // Should see the note editor with title input
-    await expect(page.getByPlaceholder('Note title\u2026')).toBeVisible();
+    await expect(page.getByPlaceholder('笔记标题…')).toBeVisible();
   });
 
   test('edit note title and content', async ({ page }) => {
@@ -42,17 +42,17 @@ test.describe('Notes management', () => {
     await page.goto(`/projects/${project.id}/notes/${noteId}`);
 
     // Notes open in rendered read view by default; switch to Edit to reach the textarea.
-    await page.getByRole('button', { name: /Edit/ }).click();
+    await page.getByRole('button', { name: /编辑/ }).click();
 
     // Wait for note to load
-    const titleInput = page.getByPlaceholder('Note title\u2026');
+    const titleInput = page.getByPlaceholder('笔记标题…');
     await expect(titleInput).toHaveValue('Initial Title');
 
     // Change the title
     await titleInput.fill('Updated Title');
 
     // Change the content
-    const textarea = page.getByPlaceholder(/Write your notes here/);
+    const textarea = page.getByPlaceholder(/在这里记录笔记/);
     await expect(textarea).toHaveValue('Initial content');
     await textarea.fill('Updated content here');
 
@@ -65,10 +65,10 @@ test.describe('Notes management', () => {
     // Re-mock auth before navigating again (reload clears route mocks)
     await mockAuth(page);
     await page.goto(`/projects/${project.id}/notes/${noteId}`);
-    await page.getByRole('button', { name: /Edit/ }).click();
+    await page.getByRole('button', { name: /编辑/ }).click();
 
-    await expect(page.getByPlaceholder('Note title\u2026')).toHaveValue('Updated Title', { timeout: 5000 });
-    await expect(page.getByPlaceholder(/Write your notes here/)).toHaveValue('Updated content here');
+    await expect(page.getByPlaceholder('笔记标题…')).toHaveValue('Updated Title', { timeout: 5000 });
+    await expect(page.getByPlaceholder(/在这里记录笔记/)).toHaveValue('Updated content here');
   });
 
   test('navigate back to project from note editor', async ({ page }) => {
@@ -78,7 +78,7 @@ test.describe('Notes management', () => {
     await page.goto(`/projects/${project.id}/notes/${noteId}`);
 
     // Click the back button
-    await page.getByRole('button', { name: /Project/ }).click();
+    await page.getByRole('button', { name: /项目/ }).click();
 
     // Should navigate back to project view
     await page.waitForURL(`**/projects/${project.id}`);
@@ -89,7 +89,7 @@ test.describe('Notes management', () => {
     await createNoteViaApi(page, project.id, { title: 'Listed Note', content: 'Some content' });
 
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('tab', { name: 'Notes' }).click();
+    await page.getByRole('button', { name: '笔记', exact: true }).click();
 
     // Note should appear in the list
     await expect(page.locator('text=Listed Note')).toBeVisible();
@@ -104,9 +104,9 @@ test.describe('Notes management', () => {
 
     // Navigate to project and check notes tab
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('tab', { name: 'Notes' }).click();
+    await page.getByRole('button', { name: '笔记', exact: true }).click();
 
     await expect(page.locator('text=Delete Me Note')).not.toBeVisible();
-    await expect(page.locator('text=No notes yet')).toBeVisible();
+    await expect(page.locator('text=暂无笔记。')).toBeVisible();
   });
 });

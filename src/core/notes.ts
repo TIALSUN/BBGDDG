@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { Database } from 'better-sqlite3'
-import type { PdfpalConfig } from './config.js'
+import type { BbgddgConfig } from './config.js'
 import { ProjectService } from './projects.js'
 import { SourceService } from './sources.js'
 import type { Note } from './types.js'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 
 const now = () => new Date().toISOString()
 
@@ -12,7 +12,7 @@ export class NoteService {
   private readonly projects: ProjectService
   private readonly sources: SourceService
 
-  constructor(private readonly db: Database, config: PdfpalConfig) {
+  constructor(private readonly db: Database, config: BbgddgConfig) {
     this.projects = new ProjectService(db)
     this.sources = new SourceService(db, config)
   }
@@ -33,8 +33,8 @@ export class NoteService {
     const exact = this.db.prepare('SELECT * FROM notes WHERE project_id=? AND id=?').get(project.id, selector) as Note | undefined
     if (exact) return exact
     const matches = this.db.prepare('SELECT * FROM notes WHERE project_id=? AND title=? COLLATE NOCASE ORDER BY created_at').all(project.id, selector) as Note[]
-    if (!matches.length) throw new PdfpalError('NOTE_NOT_FOUND', `Note not found: ${selector}`, 3)
-    if (matches.length > 1) throw new PdfpalError('AMBIGUOUS_NOTE', `Note title is ambiguous: ${selector}`, 4, matches.map(({ id, title }) => ({ id, title })))
+    if (!matches.length) throw new BbgddgError('NOTE_NOT_FOUND', `Note not found: ${selector}`, 3)
+    if (matches.length > 1) throw new BbgddgError('AMBIGUOUS_NOTE', `Note title is ambiguous: ${selector}`, 4, matches.map(({ id, title }) => ({ id, title })))
     return matches[0]!
   }
 
@@ -55,7 +55,7 @@ export class NoteService {
   /** Updates whichever of title/content is provided; the other is left unchanged. */
   update(projectSelector: string, selector: string, changes: { title?: string; content?: string }): Note {
     const note = this.resolve(projectSelector, selector)
-    if (changes.title !== undefined && !changes.title.trim()) throw new PdfpalError('INVALID_TITLE', 'Note title cannot be empty', 2)
+    if (changes.title !== undefined && !changes.title.trim()) throw new BbgddgError('INVALID_TITLE', 'Note title cannot be empty', 2)
     const title = changes.title !== undefined ? changes.title.trim() : note.title
     const content = changes.content !== undefined ? changes.content : note.content
     const updated_at = now()

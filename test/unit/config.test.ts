@@ -6,7 +6,7 @@ import { loadConfig } from '../../src/core/config.js'
 
 test('loads and imports legacy config.env', () => {
   const initial = testConfig()
-  fs.writeFileSync(`${initial.dataDir}/config.env`, 'PDFPAL_PORT=9123\nPDFPAL_AGENT=codex\nPDFPAL_MODEL=test-model\nTAVILY_API_KEY=obsolete\n')
+  fs.writeFileSync(`${initial.dataDir}/config.env`, 'BBGDDG_PORT=9123\nBBGDDG_AGENT=codex\nBBGDDG_MODEL=test-model\nTAVILY_API_KEY=obsolete\n')
   const loaded = loadConfig({ dataDir: initial.dataDir })
   try {
     assert.equal(loaded.port, 9123)
@@ -34,8 +34,8 @@ test('does not load Tavily from the environment', () => {
 
 test('explicit configuration overrides environment values', () => {
   const initial = testConfig()
-  const previous = process.env.PDFPAL_PORT
-  process.env.PDFPAL_PORT = '9001'
+  const previous = process.env.BBGDDG_PORT
+  process.env.BBGDDG_PORT = '9001'
   try { assert.equal(loadConfig({ dataDir: initial.dataDir, port: 9002 }).port, 9002) }
-  finally { if (previous === undefined) delete process.env.PDFPAL_PORT; else process.env.PDFPAL_PORT = previous; cleanup(initial, { close() {} } as never) }
+  finally { if (previous === undefined) delete process.env.BBGDDG_PORT; else process.env.BBGDDG_PORT = previous; cleanup(initial, { close() {} } as never) }
 })

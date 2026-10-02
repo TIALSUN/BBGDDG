@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-export function Brand() { return <Link to="/" className="brand"><span className="brand-symbol" aria-hidden="true">P</span><span>PDFPal<small>阅读 · 思考 · 记录</small></span></Link> }
+export function Brand() { return <Link to="/" className="brand"><span className="brand-symbol" aria-hidden="true">B</span><span>BBGDDG<small>阅读 · 思考 · 记录</small></span></Link> }
 export function EmptyState({ title, children }: { title: string; children: ReactNode }) { return <div className="empty-state"><span className="empty-mark" aria-hidden="true">⌑</span><h3>{title}</h3><p>{children}</p></div> }
 export const colors = { yellow: '#e9c76b', green: '#87c9a1', blue: '#8baef0', pink: '#dca3c4' }
 export const colorNames = {yellow:'黄色',green:'绿色',blue:'蓝色',pink:'粉色'}

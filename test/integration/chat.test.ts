@@ -1,5 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import { ChatService } from '../../src/core/chat.js'
 import { ProjectService } from '../../src/core/projects.js'
 import { RetrievalService } from '../../src/core/retrieval.js'
@@ -7,7 +9,8 @@ import { cleanup, createSource, testConfig, testDb } from '../helpers/test-utils
 
 test('chat retrieves context, invokes an agent, and persists history', async () => {
   const config = testConfig(), db = testDb(config)
-  config.claudeBin = '/bin/echo'
+  config.claudeBin = path.join(config.dataDir, 'mock-claude.mjs')
+  fs.writeFileSync(config.claudeBin, "process.stdin.resume();console.log(JSON.stringify({result:'Grounded synthetic answer'}))")
   const originalFetch = globalThis.fetch
   globalThis.fetch = (async () => { throw new Error('unexpected external web search') }) as typeof fetch
   try {
@@ -16,6 +19,7 @@ test('chat retrieves context, invokes an agent, and persists history', async () 
     new RetrievalService(db).index(source, '[Page 2]\nTesting makes research reliable.')
     const result = await new ChatService(db, config).ask(project.id, 'testing research')
     assert.equal(result.project.id, project.id)
+    assert.equal(result.answer, 'Grounded synthetic answer')
     assert.deepEqual(result.sources[0]?.pages, [2])
     assert.ok(result.chat_session_id)
     assert.equal((db.prepare('SELECT COUNT(*) count FROM chat_messages').get() as { count: number }).count, 2)

@@ -2,20 +2,20 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
-import { loadConfig, type PdfpalConfig } from '../../src/core/config.js'
+import { loadConfig, type BbgddgConfig } from '../../src/core/config.js'
 import { openDatabase } from '../../src/core/database.js'
 import type Database from 'better-sqlite3'
 
-export function testConfig(): PdfpalConfig {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-test-'))
+export function testConfig(): BbgddgConfig {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-test-'))
   return loadConfig({ dataDir, port: 18299, host: '127.0.0.1', agent: 'claude', model: '', claudeBin: 'claude', codexBin: 'codex', opencodeBin: 'opencode' })
 }
 
-export function testDb(config: PdfpalConfig): Database.Database {
+export function testDb(config: BbgddgConfig): Database.Database {
   return openDatabase(config)
 }
 
-export function cleanup(config: PdfpalConfig, db: Database.Database): void {
+export function cleanup(config: BbgddgConfig, db: Database.Database): void {
   db.close()
   fs.rmSync(config.dataDir, { recursive: true, force: true })
 }

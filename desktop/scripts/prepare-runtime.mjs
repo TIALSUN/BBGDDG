@@ -7,16 +7,16 @@ const desktop = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const repo = path.dirname(desktop);
 const runtime = path.join(desktop, 'runtime');
 const backend = path.join(runtime, 'backend');
-const npm = process.env.PDFPAL_NPM_CLI || process.env.npm_execpath;
-if (!npm) throw new Error('Run this script through npm run prepare:runtime, or set PDFPAL_NPM_CLI to npm-cli.js.');
-if (!fs.existsSync(path.join(repo, 'frontend', 'dist', 'index.html'))) throw new Error('Build the parent PDFPal project first.');
+const npm = process.env.BBGDDG_NPM_CLI || process.env.npm_execpath;
+if (!npm) throw new Error('Run this script through npm run prepare:runtime, or set BBGDDG_NPM_CLI to npm-cli.js.');
+if (!fs.existsSync(path.join(repo, 'frontend', 'dist', 'index.html'))) throw new Error('Build the parent BBGDDG project first.');
 if (!fs.existsSync(path.join(desktop, 'node_modules', 'electron', 'dist', 'electron.exe'))) {
   const install = spawnSync(process.execPath, [path.join(desktop, 'node_modules', 'electron', 'install.js')], { windowsHide: true, stdio: 'inherit' });
   if (install.status !== 0) throw new Error('Unable to install desktop Electron runtime');
 }
 fs.mkdirSync(path.join(backend, 'frontend'), { recursive: true });
 fs.mkdirSync(path.join(desktop, 'assets'), { recursive: true });
-for (const name of ['package.json', 'package-lock.json']) fs.copyFileSync(path.join(repo, name), path.join(backend, name));
+for (const name of ['package.json', 'package-lock.json', 'LICENSE', 'NOTICE.md']) fs.copyFileSync(path.join(repo, name), path.join(backend, name));
 fs.copyFileSync(path.join(repo, 'frontend', 'package.json'), path.join(backend, 'frontend', 'package.json'));
 fs.cpSync(path.join(repo, 'dist'), path.join(backend, 'dist'), { recursive: true });
 fs.cpSync(path.join(repo, 'frontend', 'dist'), path.join(backend, 'frontend', 'dist'), { recursive: true });

@@ -4,8 +4,8 @@ export default function LoginPage() {
       height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
       background: 'var(--bg)', flexDirection: 'column', gap: 24,
     }}>
-      <img src="/logo.png" alt="pdfpal" style={{ width: 120, height: 120 }} />
-      <div style={{ fontSize: 28, fontWeight: 700, color: '#e5e7eb', letterSpacing: '-1px' }}>pdfpal</div>
+      <img src="/logo.png" alt="bbgddg" style={{ width: 120, height: 120 }} />
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#e5e7eb', letterSpacing: '-1px' }}>bbgddg</div>
       <div style={{ color: 'var(--muted)', fontSize: 15 }}>你的 AI 阅读助手</div>
       <a
         href="/auth/google"

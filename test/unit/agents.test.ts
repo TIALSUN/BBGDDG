@@ -5,7 +5,7 @@ import path from 'node:path'
 import { AgentService } from '../../src/core/agents.js'
 import { AiSettingsStore } from '../../src/core/ai-settings.js'
 import { parseCliAnswer } from '../../src/core/ai-cli.js'
-import { PdfpalError } from '../../src/core/types.js'
+import { BbgddgError } from '../../src/core/types.js'
 import { testConfig } from '../helpers/test-utils.js'
 
 test('CLI adapters use stdin, official flags and persisted actual usage', async () => {
@@ -41,11 +41,11 @@ test('missing commands and failed processes never produce successful usage or le
   const config = testConfig()
   try {
     config.claudeBin = path.join(config.dataDir, 'missing.exe')
-    await assert.rejects(new AgentService(config).invoke('prompt'), (error: unknown) => error instanceof PdfpalError && error.code === 'AGENT_NOT_FOUND')
+    await assert.rejects(new AgentService(config).invoke('prompt'), (error: unknown) => error instanceof BbgddgError && error.code === 'AGENT_NOT_FOUND')
     const file = path.join(config.dataDir, 'failed.mjs')
     fs.writeFileSync(file, `process.stdin.resume();console.log('partial answer');console.error('sk-secret-do-not-expose');process.exitCode=2`)
     config.claudeBin = file
-    await assert.rejects(new AgentService(config).invoke('prompt'), (error: unknown) => error instanceof PdfpalError && error.code === 'AGENT_FAILED' && !error.message.includes('sk-secret'))
+    await assert.rejects(new AgentService(config).invoke('prompt'), (error: unknown) => error instanceof BbgddgError && error.code === 'AGENT_FAILED' && !error.message.includes('sk-secret'))
     assert.equal(new AiSettingsStore(config).usage('claude').calls, 0)
   } finally { fs.rmSync(config.dataDir, { recursive: true, force: true }) }
 })

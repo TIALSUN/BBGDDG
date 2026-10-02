@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Symlinks skills/pdfpal-cli into Claude Code's and Codex's user skill
+# Symlinks skills/bbgddg-cli into Claude Code's and Codex's user skill
 # directories so either agent can discover it. Re-run to update after
 # editing the skill; pass --uninstall to remove the symlinks.
 set -euo pipefail
 
-SKILL_NAME="pdfpal-cli"
+SKILL_NAME="bbgddg-cli"
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SKILL_SRC="$REPO_DIR/skills/$SKILL_NAME"
 

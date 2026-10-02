@@ -9,18 +9,18 @@ test('local data and AI routes require authorization and reject spoofed hosts an
  const config=testConfig(),app=await buildServer(config,{accessToken:token})
  try {
   for(const url of ['/api/health','/api/projects','/api/ai/settings','/api/agents','/'])assert.equal((await app.inject({url})).statusCode,401)
-  assert.equal((await app.inject({url:'/api/projects',headers:{'x-pdfpal-token':'wrong'}})).statusCode,401)
-  assert.equal((await app.inject({url:'/api/projects',headers:{'x-pdfpal-token':'中'.repeat(64)}})).statusCode,401)
+  assert.equal((await app.inject({url:'/api/projects',headers:{'x-bbgddg-token':'wrong'}})).statusCode,401)
+  assert.equal((await app.inject({url:'/api/projects',headers:{'x-bbgddg-token':'中'.repeat(64)}})).statusCode,401)
   assert.equal((await app.inject({url:'/api/projects',headers:{host:'localhost:99999'}})).statusCode,403)
-  const trusted={host:'localhost:80','x-pdfpal-token':token}
+  const trusted={host:'localhost:80','x-bbgddg-token':token}
   assert.equal((await app.inject({url:'/api/projects',headers:trusted})).statusCode,200)
   assert.equal((await app.inject({url:'/api/projects',headers:{...trusted,host:'evil.example:80'}})).statusCode,403)
   assert.equal((await app.inject({method:'PUT',url:'/api/ai/api/api-compatible',headers:{...trusted,host:'evil.example:80',origin:'http://evil.example'},payload:{baseUrl:'https://example.com',model:'test'}})).statusCode,403)
   assert.equal((await app.inject({method:'POST',url:'/api/projects',headers:{...trusted,origin:'http://evil.example'},payload:{title:'blocked'}})).statusCode,403)
-  assert.equal((await app.inject({method:'POST',url:'/api/projects',headers:{cookie:`pdfpal_session=${token}`},payload:{title:'blocked'}})).statusCode,403)
+  assert.equal((await app.inject({method:'POST',url:'/api/projects',headers:{cookie:`bbgddg_session=${token}`},payload:{title:'blocked'}})).statusCode,403)
   const login=await app.inject({method:'POST',url:'/api/session',headers:trusted})
   assert.equal(login.statusCode,200);assert.match(String(login.headers['set-cookie']),/HttpOnly; SameSite=Strict/)
-  const cookie=`pdfpal_session=${token}`
+  const cookie=`bbgddg_session=${token}`
   assert.equal((await app.inject({url:'/api/projects',headers:{cookie}})).statusCode,200)
   const created=await app.inject({method:'POST',url:'/api/projects',headers:{cookie,origin:'http://localhost'},payload:{title:'allowed'}})
   assert.equal(created.statusCode,200)

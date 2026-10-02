@@ -54,7 +54,7 @@ export interface AskResult {
   chat_session_id: string
 }
 
-export class PdfpalError extends Error {
+export class BbgddgError extends Error {
   constructor(
     public readonly code: string,
     message: string,
@@ -62,6 +62,6 @@ export class PdfpalError extends Error {
     public readonly details?: unknown,
   ) {
     super(message)
-    this.name = 'PdfpalError'
+    this.name = 'BbgddgError'
   }
 }

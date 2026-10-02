@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import { spawnSync } from 'node:child_process'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 import type { AiUsage, CliId } from './ai-settings.js'
 import type { AgentAnswer } from './ai-api.js'
 
@@ -20,7 +20,7 @@ export function findCommand(command: string): string | undefined {
 }
 export function launchCommand(command: string): { binary: string; prefix: string[] } {
   const file = findCommand(command)
-  if (!file) throw new PdfpalError('AGENT_NOT_FOUND', '没有找到该工具的命令行。请安装工具或在 AI 设置中填写命令路径。', 2)
+  if (!file) throw new BbgddgError('AGENT_NOT_FOUND', '没有找到该工具的命令行。请安装工具或在 AI 设置中填写命令路径。', 2)
   if (/\.[cm]?js$/i.test(file)) return { binary: process.execPath, prefix: [file] }
   if (process.platform === 'win32' && /\.(cmd|bat)$/i.test(file)) {
     // Resolve standard npm shims directly to Node. Prompt text never enters cmd.exe.
@@ -28,7 +28,7 @@ export function launchCommand(command: string): { binary: string; prefix: string
     const match = text.match(/%(?:dp0%|~dp0)[\\/]([^"\r\n]+\.[cm]?js)/i)
     const script = match && path.resolve(path.dirname(file), match[1]!)
     if (script && fs.existsSync(script)) return { binary: process.execPath, prefix: [script] }
-    throw new PdfpalError('UNSUPPORTED_CLI_LAUNCHER', '此批处理启动器无法直接调用。请在 AI 设置中填写工具的 .exe 或 Node 脚本入口路径。', 2)
+    throw new BbgddgError('UNSUPPORTED_CLI_LAUNCHER', '此批处理启动器无法直接调用。请在 AI 设置中填写工具的 .exe 或 Node 脚本入口路径。', 2)
   }
   return { binary: file, prefix: [] }
 }
@@ -48,7 +48,7 @@ export function parseCliAnswer(id: CliId, output: string, model: string): AgentA
   }
   if (id === 'claude' || id === 'workbuddy') {
     const result = events.findLast(event => typeof event.result === 'string')
-    if (result?.is_error) throw new PdfpalError('AGENT_FAILED', '工具未完成回答，请检查登录状态、模型和额度。', 2)
+    if (result?.is_error) throw new BbgddgError('AGENT_FAILED', '工具未完成回答，请检查登录状态、模型和额度。', 2)
     if (result) {
       answer = result.result
       const models = Object.keys(result.modelUsage || {})
@@ -66,7 +66,7 @@ export function parseCliAnswer(id: CliId, output: string, model: string): AgentA
     if (raw) { usage.inputTokens = count(raw.input_tokens); usage.outputTokens = count(raw.output_tokens); usage.cachedTokens = count(raw.cached_input_tokens) }
     const returnedModel = events.findLast(event => typeof event.model === 'string')?.model
     if (returnedModel) usage.model = returnedModel
-    if (events.some(event => event.type === 'turn.failed' || event.type === 'error')) throw new PdfpalError('AGENT_FAILED', 'Codex 未完成回答，请检查登录状态、模型和额度。', 2)
+    if (events.some(event => event.type === 'turn.failed' || event.type === 'error')) throw new BbgddgError('AGENT_FAILED', 'Codex 未完成回答，请检查登录状态、模型和额度。', 2)
   } else if (id === 'deepseek-harness') {
     answer = events.findLast(event => event.type === 'final')?.text || ''
     const steps = events.filter(event => event.type === 'status' && event.phase === 'step_end')
@@ -83,7 +83,7 @@ export function parseCliAnswer(id: CliId, output: string, model: string): AgentA
   }
   // Text output is supported for older CLIs and user-defined WorkBuddy wrappers.
   if (!events.length) answer = output
-  if (!answer.trim()) throw new PdfpalError('EMPTY_AGENT_RESPONSE', '工具没有返回完整的回答，请检查命令参数和登录状态。', 2)
+  if (!answer.trim()) throw new BbgddgError('EMPTY_AGENT_RESPONSE', '工具没有返回完整的回答，请检查命令参数和登录状态。', 2)
   if (usage.inputTokens !== undefined && usage.outputTokens !== undefined) usage.totalTokens = usage.inputTokens + usage.outputTokens
   return { answer: answer.trim(), usage }
 }

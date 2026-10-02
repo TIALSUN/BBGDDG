@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { NoteService } from '../../src/core/notes.js'
-import { PdfpalError } from '../../src/core/types.js'
+import { BbgddgError } from '../../src/core/types.js'
 import { cleanup, createProject, createSource, testConfig, testDb } from '../helpers/test-utils.js'
 
 test('creates a note and resolves it by id or exact case-insensitive title', () => {
@@ -32,7 +32,7 @@ test('ambiguous note titles are rejected', () => {
     const projectId = createProject(db, 'Research')
     const service = new NoteService(db, config)
     service.create(projectId, { title: 'Same' }); service.create(projectId, { title: 'Same' })
-    assert.throws(() => service.resolve(projectId, 'same'), (error: unknown) => error instanceof PdfpalError && error.code === 'AMBIGUOUS_NOTE')
+    assert.throws(() => service.resolve(projectId, 'same'), (error: unknown) => error instanceof BbgddgError && error.code === 'AMBIGUOUS_NOTE')
   } finally { cleanup(config, db) }
 })
 
@@ -40,7 +40,7 @@ test('an unknown selector is reported as not found', () => {
   const config = testConfig(), db = testDb(config)
   try {
     const projectId = createProject(db, 'Research')
-    assert.throws(() => new NoteService(db, config).resolve(projectId, 'missing'), (error: unknown) => error instanceof PdfpalError && error.code === 'NOTE_NOT_FOUND')
+    assert.throws(() => new NoteService(db, config).resolve(projectId, 'missing'), (error: unknown) => error instanceof BbgddgError && error.code === 'NOTE_NOT_FOUND')
   } finally { cleanup(config, db) }
 })
 
@@ -56,7 +56,7 @@ test('update changes only the field provided, leaving the other untouched', () =
     const edited = service.update(projectId, note.id, { content: 'v2' })
     assert.equal(edited.title, 'Final')
     assert.equal(edited.content, 'v2')
-    assert.throws(() => service.update(projectId, note.id, { title: '  ' }), (error: unknown) => error instanceof PdfpalError && error.code === 'INVALID_TITLE')
+    assert.throws(() => service.update(projectId, note.id, { title: '  ' }), (error: unknown) => error instanceof BbgddgError && error.code === 'INVALID_TITLE')
   } finally { cleanup(config, db) }
 })
 

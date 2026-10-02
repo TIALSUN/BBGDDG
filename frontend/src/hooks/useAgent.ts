@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { aiApi, type AgentInfo } from '../lib/api'
 export type { AgentInfo } from '../lib/api'
-export const notifyAiChange = () => window.dispatchEvent(new Event('pdfpal-ai-change'))
+export const notifyAiChange = () => window.dispatchEvent(new Event('bbgddg-ai-change'))
 
 /**
  * Loads the server's agent list (GET /api/agents) and the user's persisted
@@ -23,8 +23,8 @@ export function useAgent() {
   }, [])
   useEffect(() => {
     void refresh(); const listener = () => { void refresh() }
-    window.addEventListener('pdfpal-ai-change', listener)
-    return () => window.removeEventListener('pdfpal-ai-change', listener)
+    window.addEventListener('bbgddg-ai-change', listener)
+    return () => window.removeEventListener('bbgddg-ai-change', listener)
   }, [refresh])
   const selectAgent = async (id: string) => {
     if (!agents.find(item => item.id === id)?.available) return

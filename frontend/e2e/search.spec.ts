@@ -12,12 +12,12 @@ test.describe('Paper search', () => {
     await page.goto(`/projects/${project.id}`);
 
     // Click "Add Source" to open the modal
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
 
     // Modal should show search tab content
-    await expect(page.getByRole('heading', { name: 'Add a source' })).toBeVisible();
-    await expect(page.getByText('Search papers')).toBeVisible();
-    await expect(page.getByPlaceholder('e.g. Attention Is All You Need')).toBeVisible();
+    await expect(page.getByRole('heading', { name: '添加文献' })).toBeVisible();
+    await expect(page.getByRole('button', { name: /搜索论文/ })).toBeVisible();
+    await expect(page.getByPlaceholder('例如：Attention Is All You Need')).toBeVisible();
   });
 
   test('search returns mocked results', async ({ page }) => {
@@ -57,13 +57,13 @@ test.describe('Paper search', () => {
     );
 
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
 
     // Type a search query
-    await page.getByPlaceholder('e.g. Attention Is All You Need').fill('attention transformers');
+    await page.getByPlaceholder('例如：Attention Is All You Need').fill('attention transformers');
 
     // Click Search button
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
 
     // Results should appear
     await expect(page.locator('text=Attention Is All You Need')).toBeVisible();
@@ -100,18 +100,18 @@ test.describe('Paper search', () => {
     await mockExtract(page, { title: 'Searchable Paper', sourceId: 'src-search-1' });
 
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
 
-    await page.getByPlaceholder('e.g. Attention Is All You Need').fill('searchable paper');
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByPlaceholder('例如：Attention Is All You Need').fill('searchable paper');
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
 
     await expect(page.locator('text=Searchable Paper').first()).toBeVisible();
 
     // Click the Add button on the result card
-    await page.getByRole('button', { name: /Add$/ }).click();
+    await page.getByRole('button', { name: /添加$/ }).click();
 
     // Should show "Added" indicator
-    await expect(page.locator('text=Added')).toBeVisible();
+    await expect(page.locator('text=已添加')).toBeVisible();
   });
 
   test('search with no results shows error message', async ({ page }) => {
@@ -127,10 +127,10 @@ test.describe('Paper search', () => {
     );
 
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
 
-    await page.getByPlaceholder('e.g. Attention Is All You Need').fill('xyznonexistent123');
-    await page.getByRole('button', { name: 'Search', exact: true }).click();
+    await page.getByPlaceholder('例如：Attention Is All You Need').fill('xyznonexistent123');
+    await page.getByRole('button', { name: '搜索', exact: true }).click();
 
     await expect(page.locator('text=No results found')).toBeVisible();
   });
@@ -139,11 +139,11 @@ test.describe('Paper search', () => {
     const project = await createProjectViaApi(page, 'Search Close Project');
 
     await page.goto(`/projects/${project.id}`);
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
-    await expect(page.getByRole('heading', { name: 'Add a source' })).toBeVisible();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
+    await expect(page.getByRole('heading', { name: '添加文献' })).toBeVisible();
 
     // Click Close button
-    await page.getByRole('button', { name: 'Close' }).click();
-    await expect(page.getByRole('heading', { name: 'Add a source' })).not.toBeVisible();
+    await page.getByRole('button', { name: '关闭' }).click();
+    await expect(page.getByRole('heading', { name: '添加文献' })).not.toBeVisible();
   });
 });

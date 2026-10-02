@@ -10,5 +10,5 @@ export function getDesktopMasterKey(): Buffer | undefined { return desktopMaster
 
 export function agentEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   return Object.fromEntries(Object.entries(env).filter(([name]) =>
-    !/^PDFPAL_/i.test(name) && !['ELECTRON_RUN_AS_NODE', 'NODE_CHANNEL_FD', 'NODE_CHANNEL_SERIALIZATION_MODE'].includes(name.toUpperCase())))
+    !/^(?:BBGDDG|PDFPAL)_/i.test(name) && !['ELECTRON_RUN_AS_NODE', 'NODE_CHANNEL_FD', 'NODE_CHANNEL_SERIALIZATION_MODE'].includes(name.toUpperCase())))
 }

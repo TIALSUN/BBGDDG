@@ -4,15 +4,16 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-const work = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
-const require = createRequire(path.join(work, 'pdfpal', 'package.json'));
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+const work = path.dirname(repo);
+const require = createRequire(path.join(repo, 'package.json'));
 const { _electron } = require('playwright');
-const target = process.argv[2] || path.join(work, 'pdfpal', 'desktop', 'node_modules', 'electron', 'dist', 'electron.exe');
+const target = process.argv[2] || path.join(repo, 'desktop', 'node_modules', 'electron', 'dist', 'electron.exe');
 const packaged = !!process.argv[2];
 const userData = fs.mkdtempSync(path.join(work, 'desktop-test-'));
 const electron = await _electron.launch({
-  executablePath: target, args: packaged ? [] : [path.join(work, 'pdfpal', 'desktop')],
-  env: { ...process.env, PDFPAL_DESKTOP_USER_DATA_DIR: userData }, timeout: 60000
+  executablePath: target, args: packaged ? [] : [path.join(repo, 'desktop')],
+  env: { ...process.env, BBGDDG_DESKTOP_USER_DATA_DIR: userData }, timeout: 60000
 });
 const errors = [];
 let origin;
@@ -23,15 +24,15 @@ try {
   origin = new URL(page.url()).origin;
   const api=localRequests(page,origin);
   assert.equal((await fetch(origin+'/api/projects')).status,401);
-  assert.ok(!(await page.evaluate(()=>document.cookie)).includes('pdfpal_session')); 
+  assert.ok(!(await page.evaluate(()=>document.cookie)).includes('bbgddg_session'));
   assert.equal((await api.get(origin + '/api/health')).status(), 200);
   const prefs = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences());
   assert.equal(prefs.nodeIntegration, false); assert.equal(prefs.contextIsolation, true); assert.equal(prefs.sandbox, true);
   const agents = await (await api.get(origin + '/api/agents')).json();
-  if (process.env.PDFPAL_EXPECT_CODEX === '1') assert.ok(agents.agents.some(a => a.id === 'codex' && a.available));
+  if (process.env.BBGDDG_EXPECT_CODEX === '1') assert.ok(agents.agents.some(a => a.id === 'codex' && a.available));
   const project = await (await api.post(origin + '/api/projects', { data: { title: '桌面版验证', description: '本地 PDF 与注释持久化' } })).json();
   const response = await api.post(`${origin}/api/projects/${project.id}/sources/upload`, {
-    multipart: { file: { name: '桌面测试.pdf', mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(work, 'pdfpal', 'test', 'fixtures', 'sample.pdf')) } }
+    multipart: { file: { name: '桌面测试.pdf', mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(repo, 'test', 'fixtures', 'sample.pdf')) } }
   });
   assert.equal(response.status(), 200); const source = await response.json();
   const endpoint = `${origin}/api/projects/${project.id}/sources/${source.id}/annotations`;
@@ -60,7 +61,7 @@ try {
   await page.locator('[data-annotation-id]').first().waitFor();
   await page.locator('.annotation-card').click();
   assert.equal(await page.getByLabel('我的理解').inputValue(), annotations[0].note);
-  if (packaged) await page.screenshot({ path: path.join(work, '..', 'outputs', 'PDFPal-桌面软件.png') });
+  if (packaged) await page.screenshot({ path: path.join(userData, 'BBGDDG-桌面软件.png') });
   await page.locator('[data-annotation-id]').first().click();
   page.once('dialog', d => d.accept());
   await page.getByRole('button', { name: '取消高亮', exact: true }).click();

@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import { test, expect } from '@playwright/test';
 import { mockAuth, createProjectViaApi, mockExtract } from './helpers';
 
@@ -10,8 +11,8 @@ test.describe('Sources management', () => {
     const project = await createProjectViaApi(page, 'Sources Empty Project');
 
     await page.goto(`/projects/${project.id}`);
-    await expect(page.getByText('Sources').first()).toBeVisible();
-    await expect(page.locator('text=No sources yet')).toBeVisible();
+    await expect(page.getByRole('button', { name: '文献', exact: true })).toBeVisible();
+    await expect(page.locator('text=暂无文献。添加 PDF 或创建文献集来整理论文。')).toBeVisible();
   });
 
   test('add source via URL with mocked extract', async ({ page }) => {
@@ -21,25 +22,25 @@ test.describe('Sources management', () => {
     await mockExtract(page, { title: 'Test Paper: A Study', sourceId: 'src-123' });
 
     await page.goto(`/projects/${project.id}`);
-    await expect(page.locator('text=No sources yet')).toBeVisible();
+    await expect(page.locator('text=暂无文献。添加 PDF 或创建文献集来整理论文。')).toBeVisible();
 
     // Click "Add Source" button (the one in the header, not modal)
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
 
     // Modal should appear with "Add a source" heading
-    await expect(page.getByRole('heading', { name: 'Add a source' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: '添加文献' })).toBeVisible();
 
     // Switch to URL tab
-    await page.locator('text=Paste URL').click();
+    await page.getByRole('button', { name: /粘贴链接/ }).click();
 
     // Enter a URL
     await page.getByPlaceholder('https://arxiv.org/abs/1234.56789').fill('https://arxiv.org/abs/2301.00001');
 
     // Click Add Source button (the one inside the URL tab modal, exact match)
-    await page.getByRole('button', { name: 'Add Source', exact: true }).click();
+    await page.getByRole('button', { name: '添加文献', exact: true }).click();
 
     // Modal should close and source should appear
-    await expect(page.getByRole('heading', { name: 'Add a source' })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: '添加文献' })).not.toBeVisible();
     await expect(page.locator('text=Test Paper: A Study')).toBeVisible();
   });
 
@@ -53,13 +54,13 @@ test.describe('Sources management', () => {
     await page.goto(`/projects/${project.id}`);
 
     // Add the source via URL tab
-    await page.getByRole('button', { name: /Add Source/ }).first().click();
-    await page.locator('text=Paste URL').click();
+    await page.getByRole('button', { name: /添加文献/ }).first().click();
+    await page.getByRole('button', { name: /粘贴链接/ }).click();
     await page.getByPlaceholder('https://arxiv.org/abs/1234.56789').fill('https://example.com/paper.pdf');
-    await page.getByRole('button', { name: 'Add Source', exact: true }).click();
+    await page.getByRole('button', { name: '添加文献', exact: true }).click();
 
     // Wait for modal to close
-    await expect(page.getByRole('heading', { name: 'Add a source' })).not.toBeVisible();
+    await expect(page.getByRole('heading', { name: '添加文献' })).not.toBeVisible();
     await expect(page.locator('text=Clickable Paper')).toBeVisible();
 
     // Mock the source GET endpoint for the reader view
@@ -96,14 +97,14 @@ test.describe('Sources management', () => {
 
   test('reader restores the last page read after reload', async ({ page }) => {
     const project = await createProjectViaApi(page, 'Reading Progress Project');
-    const created = await page.request.post(`/api/projects/${project.id}/sources`, {
-      data: { url: 'test/fixtures/sample.pdf', title: 'Progress Book' },
+    const created = await page.request.post(`/api/projects/${project.id}/sources/upload`, {
+      multipart: { file: { name: 'Progress Book.pdf', mimeType: 'application/pdf', buffer: fs.readFileSync(new URL('../../test/fixtures/sample.pdf', import.meta.url)) } },
     });
     expect(created.ok()).toBeTruthy();
     const source = await created.json();
 
     await page.goto(`/projects/${project.id}/sources/${source.id}`);
-    await expect(page.getByTestId('page-progress')).toHaveText('Page 1 of 2');
+    await expect(page.getByTestId('page-progress')).toHaveText('第 1 页 / 共 2 页');
 
     const saved = page.waitForResponse(response => {
       if (response.request().method() !== 'PATCH') return false;
@@ -111,17 +112,20 @@ test.describe('Sources management', () => {
       return response.request().postDataJSON()?.last_page_read === 2;
     });
     await page.locator('[data-pdf-page="2"]').evaluate(element => element.scrollIntoView({ block: 'center' }));
-    await expect(page.getByTestId('page-progress')).toHaveText('Page 2 of 2');
+    await expect(page.getByTestId('page-progress')).toHaveText('第 2 页 / 共 2 页');
     await saved;
 
     await page.reload();
-    await expect(page.getByTestId('page-progress')).toHaveText('Page 2 of 2');
+    await expect(page.getByTestId('page-progress')).toHaveText('第 2 页 / 共 2 页');
     await expect.poll(async () => page.locator('[data-pdf-page="2"]').evaluate(element => {
       const scroll = element.closest('[data-testid="pdf-scroll-area"]');
       if (!scroll) return false;
       const pageRect = element.getBoundingClientRect();
       const scrollRect = scroll.getBoundingClientRect();
-      return Math.abs(pageRect.top - scrollRect.top - 16) < 8;
+      // A short final page can hit the bottom scroll limit before top alignment.
+      const target = Math.min(scroll.scrollHeight - scroll.clientHeight,
+        Math.max(0, scroll.scrollTop + pageRect.top - scrollRect.top - 16));
+      return Math.abs(scroll.scrollTop - target) < 8;
     })).toBe(true);
   });
 });

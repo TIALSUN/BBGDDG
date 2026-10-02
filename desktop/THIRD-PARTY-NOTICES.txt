@@ -1,11 +1,11 @@
-PDFPal desktop application
-Original project: https://github.com/andrepaim/pdfpal
-Original package license: MIT, as declared by upstream package.json.
-Local modifications: Chinese interface, reading workspace, annotations, local PDF access and desktop packaging.
+BBGDDG desktop application
+Derived from PDFPal: https://github.com/andrepaim/pdfpal
+Upstream author: Andre Paim Lemos and PDFPal contributors.
+Upstream package.json declares MIT; no standalone LICENSE was supplied.
+See bundled LICENSE and NOTICE.md for the BBGDDG changes and provenance.
 
-This distribution includes Electron (MIT), Node.js (MIT and bundled third-party licenses), and npm dependencies.
-Electron and Chromium license notices are included beside PDFPal.exe.
-Node.js licensing information: https://github.com/nodejs/node/blob/v24.19.0/LICENSE
-Backend dependency licenses are included in resources/backend/node_modules in their respective packages.
-
-No personal PDF documents, local databases, account credentials or AI agent executables are included in the distribution.
+This distribution includes Electron/Chromium, Node.js and npm dependencies.
+Electron and Chromium license notices are included beside BBGDDG.exe.
+Node.js license is included in resources/backend/NODE-LICENSE.txt.
+Backend dependency notices are included in their respective npm packages.
+No personal PDFs, databases, credentials or AI agent executables are bundled.

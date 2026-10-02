@@ -1,12 +1,12 @@
 import { AiSettingsStore, type ApiId, type AiUsage, validateBaseUrl } from './ai-settings.js'
-import { PdfpalError } from './types.js'
+import { BbgddgError } from './types.js'
 export interface AgentAnswer { answer: string; usage: AiUsage }
 const count = (value: unknown): number | undefined => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined
 export class ApiAgent {
   constructor(private readonly settings: AiSettingsStore) {}
   private prepared(id: ApiId) {
     const profile = this.settings.profile(id), secret = this.settings.secret(profile)
-    if (!secret || !profile.model || !profile.baseUrl) throw new PdfpalError('API_NOT_CONFIGURED', '请先在 AI 设置中填写接口地址、模型和 API 密钥。', 2)
+    if (!secret || !profile.model || !profile.baseUrl) throw new BbgddgError('API_NOT_CONFIGURED', '请先在 AI 设置中填写接口地址、模型和 API 密钥。', 2)
     const base = validateBaseUrl(profile.baseUrl)
     const headers: Record<string, string> = profile.protocol === 'anthropic'
       ? { 'x-api-key': secret, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' }
@@ -16,13 +16,13 @@ export class ApiAgent {
   private async request(url: string, headers: Record<string, string>, body?: unknown, timeout = 120000): Promise<any> {
     let response: Response
     try { response = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(timeout), redirect: 'error' }) }
-    catch { throw new PdfpalError('API_CONNECTION_FAILED', '接口连接失败或超时，请检查地址和网络。', 2) }
+    catch { throw new BbgddgError('API_CONNECTION_FAILED', '接口连接失败或超时，请检查地址和网络。', 2) }
     if (!response.ok) {
       // Never relay remote error bodies: some providers echo request headers or keys.
       const hint = response.status === 401 || response.status === 403 ? '密钥无效或没有权限' : response.status === 429 ? '请求受限或额度不足' : response.status === 404 ? '接口地址或模型不存在' : response.status === 400 ? '模型不支持该请求或参数不匹配' : '服务暂时不可用'
-      throw new PdfpalError('API_REQUEST_FAILED', `${hint}（HTTP ${response.status}）。`, 2)
+      throw new BbgddgError('API_REQUEST_FAILED', `${hint}（HTTP ${response.status}）。`, 2)
     }
-    try { return await response.json() } catch { throw new PdfpalError('INVALID_API_RESPONSE', '接口没有返回有效的 JSON 数据。', 2) }
+    try { return await response.json() } catch { throw new BbgddgError('INVALID_API_RESPONSE', '接口没有返回有效的 JSON 数据。', 2) }
   }
   async invoke(id: ApiId, prompt: string, model?: string): Promise<AgentAnswer> {
     const { profile, base, headers } = this.prepared(id)
@@ -32,7 +32,7 @@ export class ApiAgent {
       isClaude ? { model: requestedModel, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] }
       : { model: requestedModel, stream: false, messages: [{ role: 'user', content: prompt }] })
     const answer = isClaude ? response.content?.filter((part: any) => part.type === 'text').map((part: any) => part.text).join('\n') : response.choices?.[0]?.message?.content
-    if (typeof answer !== 'string' || !answer.trim()) throw new PdfpalError('EMPTY_API_RESPONSE', '模型没有返回可显示的回答。', 2)
+    if (typeof answer !== 'string' || !answer.trim()) throw new BbgddgError('EMPTY_API_RESPONSE', '模型没有返回可显示的回答。', 2)
     const raw = response.usage || {}
     const input = count(isClaude ? raw.input_tokens : raw.prompt_tokens)
     const output = count(isClaude ? raw.output_tokens : raw.completion_tokens)
@@ -54,6 +54,6 @@ export class ApiAgent {
     const { base, headers } = this.prepared(id)
     if (id !== 'api-deepseek' || new URL(base).hostname !== 'api.deepseek.com') return { available: false, message: '该服务没有统一的余额查询接口，请在服务商账户页面查看。' }
     const data = await this.request('https://api.deepseek.com/user/balance', headers, undefined, 15000)
-    return { available: true, balances: data.balance_infos?.map((item: any) => ({ currency: item.currency, total: item.total_balance })), message: '服务商返回的账户余额；不代表 PDFPal 的本次用量。' }
+    return { available: true, balances: data.balance_infos?.map((item: any) => ({ currency: item.currency, total: item.total_balance })), message: '服务商返回的账户余额；不代表 BBGDDG 的本次用量。' }
   }
 }

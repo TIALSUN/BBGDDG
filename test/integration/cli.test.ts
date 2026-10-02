@@ -7,12 +7,12 @@ import { execFileSync, spawnSync } from 'node:child_process'
 
 function runCli(dataDir: string, args: string[], extraEnv: NodeJS.ProcessEnv = {}): string {
   return execFileSync(process.execPath, ['dist/cli/index.js', ...args], {
-    cwd: path.resolve('.'), env: { ...process.env, PDFPAL_DATA_DIR: dataDir, ...extraEnv }, encoding: 'utf8',
+    cwd: path.resolve('.'), env: { ...process.env, BBGDDG_DATA_DIR: dataDir, ...extraEnv }, encoding: 'utf8',
   })
 }
 
 test('compiled CLI supports JSON project workflows', () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-cli-'))
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-cli-'))
   try {
     const created = JSON.parse(runCli(dataDir, ['project', 'create', 'CLI Project', '--json'])) as { id: string; title: string }
     assert.equal(created.title, 'CLI Project')
@@ -23,7 +23,7 @@ test('compiled CLI supports JSON project workflows', () => {
 })
 
 test('compiled CLI supports source lifecycle and project moves', () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-cli-source-'))
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-cli-source-'))
   try {
     runCli(dataDir, ['project', 'create', 'From', '--json'])
     runCli(dataDir, ['project', 'create', 'To', '--json'])
@@ -39,10 +39,10 @@ test('compiled CLI supports source lifecycle and project moves', () => {
 })
 
 test('compiled CLI returns structured errors and stable exit codes', () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-cli-error-'))
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-cli-error-'))
   try {
     const result = spawnSync(process.execPath, ['dist/cli/index.js', 'project', 'show', 'missing', '--json'], {
-      cwd: path.resolve('.'), env: { ...process.env, PDFPAL_DATA_DIR: dataDir }, encoding: 'utf8',
+      cwd: path.resolve('.'), env: { ...process.env, BBGDDG_DATA_DIR: dataDir }, encoding: 'utf8',
     })
     assert.equal(result.status, 3)
     assert.equal(JSON.parse(result.stderr).error.code, 'PROJECT_NOT_FOUND')
@@ -50,7 +50,7 @@ test('compiled CLI returns structured errors and stable exit codes', () => {
 })
 
 test('compiled CLI ask help has no Tavily web-search option', () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-cli-help-'))
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-cli-help-'))
   try {
     const help = runCli(dataDir, ['ask', '--help'])
     assert.equal(help.includes('--no-web'), false)
@@ -59,10 +59,10 @@ test('compiled CLI ask help has no Tavily web-search option', () => {
 })
 
 test('compiled CLI rejects the removed web-search option', () => {
-  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'pdfpal-cli-no-web-'))
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bbgddg-cli-no-web-'))
   try {
     const result = spawnSync(process.execPath, ['dist/cli/index.js', 'ask', 'missing', 'question', '--no-web'], {
-      cwd: path.resolve('.'), env: { ...process.env, PDFPAL_DATA_DIR: dataDir }, encoding: 'utf8',
+      cwd: path.resolve('.'), env: { ...process.env, BBGDDG_DATA_DIR: dataDir }, encoding: 'utf8',
     })
     assert.equal(result.status, 1)
     assert.match(result.stderr, /unknown option '--no-web'/)

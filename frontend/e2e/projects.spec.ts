@@ -11,7 +11,7 @@ test('a project can be created through the Chinese modal and persists', async ({
   await page.getByRole('button', { name: /新建项目/ }).click();
   await expect(page.getByRole('heading', { name: '创建新项目', exact: true })).toBeVisible();
   await page.getByPlaceholder('例如：大语言模型缩放定律').fill('My E2E Test Project');
-  await page.getByPlaceholder('你正在研究什么？').fill('Testing PDFPal');
+  await page.getByPlaceholder('你正在研究什么？').fill('Testing BBGDDG');
   await page.getByRole('button', { name: '创建项目', exact: true }).click();
   await expect(page.getByRole('heading', { name: '创建新项目', exact: true })).not.toBeVisible();
   await page.reload();

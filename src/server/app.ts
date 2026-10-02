@@ -7,7 +7,7 @@ import staticPlugin from '@fastify/static'
 import open from 'open'
 import { randomUUID } from 'node:crypto'
 import { fileURLToPath } from 'node:url'
-import type { PdfpalConfig } from '../core/config.js'
+import type { BbgddgConfig } from '../core/config.js'
 import { openDatabase } from '../core/database.js'
 import { ProjectService } from '../core/projects.js'
 import { SourceService } from '../core/sources.js'
@@ -22,14 +22,14 @@ import { ApiAgent } from '../core/ai-api.js'
 import { z } from 'zod'
 import { resolvePdf, excerptFromText } from '../core/pdf.js'
 import { relatedPapers } from '../core/research.js'
-import { PdfpalError } from '../core/types.js'
+import { BbgddgError } from '../core/types.js'
 import { installLocalAccess, newAccessToken } from './local-access.js'
 
 type Params = { projectId: string; sourceId: string; id: string }
 const now = () => new Date().toISOString()
 
-export async function buildServer(config: PdfpalConfig, options: { accessToken?: string } = {}) {
-  const app = Fastify({ logger: { redact: ['req.headers.authorization', 'req.headers["x-api-key"]', 'req.headers["x-pdfpal-token"]', 'req.headers.cookie'] }, bodyLimit: 30 * 1024 * 1024 })
+export async function buildServer(config: BbgddgConfig, options: { accessToken?: string } = {}) {
+  const app = Fastify({ logger: { redact: ['req.headers.authorization', 'req.headers["x-api-key"]', 'req.headers["x-bbgddg-token"]', 'req.headers.cookie'] }, bodyLimit: 30 * 1024 * 1024 })
   installLocalAccess(app, options.accessToken || newAccessToken())
   const db = openDatabase(config)
   const projects = new ProjectService(db)
@@ -45,7 +45,7 @@ export async function buildServer(config: PdfpalConfig, options: { accessToken?:
 
   app.setErrorHandler((error, _request, reply) => {
     const message = error instanceof Error ? error.message : String(error)
-    const known = error instanceof PdfpalError ? error : error instanceof z.ZodError ? new PdfpalError('INVALID_INPUT', '设置格式不正确，请检查必填字段。', 2) : new PdfpalError('INTERNAL_ERROR', message)
+    const known = error instanceof BbgddgError ? error : error instanceof z.ZodError ? new BbgddgError('INVALID_INPUT', '设置格式不正确，请检查必填字段。', 2) : new BbgddgError('INTERNAL_ERROR', message)
     const status = known.code === 'PDF_FETCH_TIMEOUT' ? 504 : known.exitCode === 3 ? 404 : known.exitCode === 2 || known.exitCode === 4 ? 400 : 500
     reply.status(status).send({ detail: known.message, code: known.code, details: known.details })
   })
@@ -59,15 +59,15 @@ export async function buildServer(config: PdfpalConfig, options: { accessToken?:
   app.put<{ Params: { id: string } }>('/api/ai/cli/:id', async request => aiSettings.saveCli(request.params.id, request.body))
   app.put<{ Body: { provider: string } }>('/api/ai/default', async request => {
     const body = z.object({ provider: z.string() }).parse(request.body)
-    if (!agentService.list().find(agent => agent.id === body.provider)?.available) throw new PdfpalError('AI_UNAVAILABLE', '该服务当前不可调用，请先完成安装或设置。', 2)
+    if (!agentService.list().find(agent => agent.id === body.provider)?.available) throw new BbgddgError('AI_UNAVAILABLE', '该服务当前不可调用，请先完成安装或设置。', 2)
     aiSettings.select(body.provider); return { ok: true }
   })
   app.post<{ Params: { id: string } }>('/api/ai/api/:id/test', async request => {
-    if (!apiIds.includes(request.params.id as ApiId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
+    if (!apiIds.includes(request.params.id as ApiId)) throw new BbgddgError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
     return apiAgent.test(request.params.id as ApiId)
   })
   app.post<{ Params: { id: string } }>('/api/ai/api/:id/balance', async request => {
-    if (!apiIds.includes(request.params.id as ApiId)) throw new PdfpalError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
+    if (!apiIds.includes(request.params.id as ApiId)) throw new BbgddgError('UNKNOWN_PROVIDER', '找不到这个 API 服务。', 2)
     return apiAgent.balance(request.params.id as ApiId)
   })
 
@@ -102,7 +102,7 @@ export async function buildServer(config: PdfpalConfig, options: { accessToken?:
       return await sources.addPdf(request.params.projectId, bytes, undefined, undefined, path.basename(file.filename.replaceAll('\\', '/')))
     } catch (error) {
       if ((error as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') return reply.status(413).send({ detail: 'PDF 文件不能超过 25 MB。' })
-      if (error instanceof PdfpalError) throw error
+      if (error instanceof BbgddgError) throw error
       return reply.status(400).send({ detail: '无法读取此 PDF。请确认文件完整且未加密。' })
     }
   })
@@ -123,7 +123,7 @@ export async function buildServer(config: PdfpalConfig, options: { accessToken?:
       const resolved = await resolvePdf(source.url)
       return reply.type('application/pdf').send(resolved.bytes)
     }
-    throw new PdfpalError('PDF_NOT_STORED', 'PDF file is not stored locally', 3)
+    throw new BbgddgError('PDF_NOT_STORED', 'PDF file is not stored locally', 3)
   })
   app.get<{ Querystring: { url: string } }>('/api/proxy-pdf', async (request, reply) => {
     const result = await resolvePdf(request.query.url)
@@ -221,27 +221,27 @@ function registerAnnotationRoutes(app: any, db: import('better-sqlite3').Databas
     (db.prepare('SELECT * FROM annotations WHERE project_id=? AND source_id=? ORDER BY page_number,y1').all(request.params.projectId, request.params.sourceId) as any[]).map(parseAnnotation))
   app.post('/api/projects/:projectId/sources/:sourceId/annotations', async (request: any) => {
     const id = randomUUID(), body = request.body
-    if (!db.prepare('SELECT id FROM sources WHERE id=? AND project_id=?').get(request.params.sourceId,request.params.projectId)) throw new PdfpalError('SOURCE_NOT_FOUND','文献不存在。',3)
-    if (!Number.isInteger(body.page_number) || body.page_number < 1 || typeof body.text !== 'string' || !body.text.trim() || ![body.x1,body.y1,body.x2,body.y2].every(value=>typeof value==='number' && Number.isFinite(value) && value>=0 && value<=1)) throw new PdfpalError('INVALID_ANNOTATION','请选择文献中的文字后添加标注。',2)
-    if (!['yellow','green','blue','pink'].includes(body.color ?? 'yellow') || (body.note!==undefined && typeof body.note!=='string')) throw new PdfpalError('INVALID_ANNOTATION','注释或颜色无效。',2)
+    if (!db.prepare('SELECT id FROM sources WHERE id=? AND project_id=?').get(request.params.sourceId,request.params.projectId)) throw new BbgddgError('SOURCE_NOT_FOUND','文献不存在。',3)
+    if (!Number.isInteger(body.page_number) || body.page_number < 1 || typeof body.text !== 'string' || !body.text.trim() || ![body.x1,body.y1,body.x2,body.y2].every(value=>typeof value==='number' && Number.isFinite(value) && value>=0 && value<=1)) throw new BbgddgError('INVALID_ANNOTATION','请选择文献中的文字后添加标注。',2)
+    if (!['yellow','green','blue','pink'].includes(body.color ?? 'yellow') || (body.note!==undefined && typeof body.note!=='string')) throw new BbgddgError('INVALID_ANNOTATION','注释或颜色无效。',2)
     db.prepare('INSERT INTO annotations(id,source_id,project_id,page_number,x1,y1,x2,y2,text,color,rects,created_at,note) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id, request.params.sourceId, request.params.projectId, body.page_number, body.x1, body.y1, body.x2, body.y2, body.text, body.color ?? 'yellow', body.rects ? JSON.stringify(body.rects) : null, now(),body.note ?? '')
     return parseAnnotation(db.prepare('SELECT * FROM annotations WHERE id=?').get(id))
   })
   app.patch('/api/projects/:projectId/sources/:sourceId/annotations/:id', async (request: any) => {
     const {id,sourceId,projectId}=request.params
     const existing=db.prepare('SELECT * FROM annotations WHERE id=? AND source_id=? AND project_id=?').get(id,sourceId,projectId) as {color:string;note:string}|undefined
-    if (!existing) throw new PdfpalError('ANNOTATION_NOT_FOUND','标注不存在。',3)
+    if (!existing) throw new BbgddgError('ANNOTATION_NOT_FOUND','标注不存在。',3)
     const color=request.body.color ?? existing.color, note=request.body.note ?? existing.note
-    if (!['yellow','green','blue','pink'].includes(color) || typeof note!=='string') throw new PdfpalError('INVALID_ANNOTATION','注释或颜色无效。',2)
+    if (!['yellow','green','blue','pink'].includes(color) || typeof note!=='string') throw new BbgddgError('INVALID_ANNOTATION','注释或颜色无效。',2)
     db.prepare('UPDATE annotations SET color=?,note=? WHERE id=? AND source_id=? AND project_id=?').run(color,note,id,sourceId,projectId)
     return parseAnnotation(db.prepare('SELECT * FROM annotations WHERE id=? AND source_id=? AND project_id=?').get(id,sourceId,projectId))
   })
   app.delete('/api/projects/:projectId/sources/:sourceId/annotations/:id', async (request: any, reply: any) => { db.prepare('DELETE FROM annotations WHERE id=? AND source_id=? AND project_id=?').run(request.params.id, request.params.sourceId, request.params.projectId); reply.status(204).send() })
 }
 
-function registerResearchRoutes(app: any, db: import('better-sqlite3').Database, config: PdfpalConfig) {
+function registerResearchRoutes(app: any, db: import('better-sqlite3').Database, config: BbgddgConfig) {
   app.get('/api/search/papers', async (request: any) => {
-    const q = String(request.query.q ?? '').trim(); if (q.length < 3) throw new PdfpalError('QUERY_TOO_SHORT', 'Query too short', 2)
+    const q = String(request.query.q ?? '').trim(); if (q.length < 3) throw new BbgddgError('QUERY_TOO_SHORT', 'Query too short', 2)
     const response = await fetch(`https://api.openalex.org/works?search=${encodeURIComponent(q)}&per-page=${Math.min(Number(request.query.limit ?? 20), 30)}`, { signal: AbortSignal.timeout(15_000) })
     if (!response.ok) return { results: [], error: `OpenAlex HTTP ${response.status}` }
     const data = await response.json() as any
@@ -257,11 +257,11 @@ function registerResearchRoutes(app: any, db: import('better-sqlite3').Database,
   app.get('/api/projects/:projectId/sources/:sourceId/related', async (request: any) => relatedPapers(db, request.params.projectId, request.params.sourceId, config.semanticScholarApiKey, request.query.refresh === 'true'))
 }
 
-export async function startServer(config: PdfpalConfig, options: { openBrowser: boolean }): Promise<void> {
+export async function startServer(config: BbgddgConfig, options: { openBrowser: boolean }): Promise<void> {
   const accessToken = newAccessToken()
   const app = await buildServer(config, { accessToken })
   await app.listen({ host: config.host, port: config.port })
   const url = `http://localhost:${config.port}/unlock#${accessToken}`
-  process.stdout.write(`pdfpal: running at ${url}\n`)
-  if (options.openBrowser) await open(url).catch(() => process.stderr.write(`pdfpal: open ${url} in your browser\n`))
+  process.stdout.write(`bbgddg: running at ${url}\n`)
+  if (options.openBrowser) await open(url).catch(() => process.stderr.write(`bbgddg: open ${url} in your browser\n`))
 }
