@@ -1,6 +1,10 @@
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
+const fs = require('node:fs');
 module.exports = async context => {
+  for (const file of ['node.exe', 'backend/node_modules/zod/package.json', 'backend/node_modules/better-sqlite3/build/Release/better_sqlite3.node', 'backend/frontend/dist/index.html']) {
+    if (!fs.existsSync(path.join(context.appOutDir, 'resources', file))) throw new Error('Required bundled resource missing: ' + file);
+  }
   execFileSync(path.join(__dirname, 'tools', 'rcedit-x64.exe'), [
     path.join(context.appOutDir, 'PDFPal.exe'),
     '--set-icon', path.join(__dirname, 'assets', 'icon.ico'),

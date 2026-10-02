@@ -8,6 +8,8 @@
   "main": "main.cjs",
   "scripts": {
     "start": "electron .",
+    "prepare:runtime": "node scripts/prepare-runtime.mjs",
+    "test:smoke": "node scripts/smoke-test.mjs",
     "package": "electron-builder --win nsis portable --x64"
   },
   "devDependencies": {
@@ -24,6 +26,7 @@
     "files": ["main.cjs", "loading.html", "assets/icon.png", "package.json"],
     "extraResources": [
       { "from": "runtime/backend", "to": "backend", "filter": ["**/*", "!**/test/**", "!**/tests/**", "!**/*.map"] },
+      { "from": "runtime/backend/node_modules", "to": "backend/node_modules", "filter": ["**/*", "!**/test/**", "!**/tests/**", "!**/*.map", "!.bin/**"] },
       { "from": "runtime/node.exe", "to": "node.exe" },
       { "from": "THIRD-PARTY-NOTICES.txt", "to": "THIRD-PARTY-NOTICES.txt" }
     ],
