@@ -29,6 +29,7 @@ function startService() {
     const env = { ...process.env, PDFPAL_DATA_DIR: dataDir };
     // The master key is protected by Windows DPAPI through Electron safeStorage.
     const protectedKeyPath = path.join(app.getPath('userData'), 'ai-secret-key.bin');
+    let masterKey;
     if (safeStorage.isEncryptionAvailable()) {
       const legacyMasterKey = path.join(dataDir, '.ai-secret-key');
       if (!fs.existsSync(protectedKeyPath)) {
@@ -36,14 +37,17 @@ function startService() {
         fs.writeFileSync(protectedKeyPath, safeStorage.encryptString(key));
         if (fs.existsSync(legacyMasterKey)) fs.unlinkSync(legacyMasterKey);
       }
-      env.PDFPAL_AI_SECRET_KEY = safeStorage.decryptString(fs.readFileSync(protectedKeyPath));
-    }
+      masterKey = safeStorage.decryptString(fs.readFileSync(protectedKeyPath));
+    } else throw new Error('Windows 密钥保护不可用，无法安全启动。请重新登录系统后再试。');
+    delete env.PDFPAL_AI_SECRET_KEY;
+    delete env.PDFPAL_SESSION_TOKEN;
     if (codex) { env.CODEX_BIN = codex; env.PDFPAL_AGENT ||= 'codex'; }
     delete env.ELECTRON_RUN_AS_NODE;
     service = fork(path.join(runtime, 'backend', 'backend.mjs'), [], {
       execPath: path.join(runtime, 'node.exe'), cwd: path.join(runtime, 'backend'),
       env, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe', 'ipc']
     });
+    service.send({ type: 'configure', masterKey });
     service.stdout.pipe(log, { end: false });
     service.stderr.pipe(log, { end: false });
     const timer = setTimeout(() => reject(new Error('本地文献服务启动超时。')), 45000);

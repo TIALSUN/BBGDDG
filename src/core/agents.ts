@@ -9,6 +9,7 @@ import { PdfpalError } from './types.js'
 import { AiSettingsStore, apiIds, cliIds, type ProviderId, type ApiId, type CliId } from './ai-settings.js'
 import { ApiAgent, type AgentAnswer } from './ai-api.js'
 import { findCommand, launchCommand, detectWorkBuddyDesktop, parseCliAnswer } from './ai-cli.js'
+import { agentEnvironment } from './ai-secrets.js'
 
 export type AgentName = ProviderId
 export interface AgentDocument { path: string; title: string; text: string }
@@ -106,7 +107,7 @@ export class AgentService {
       args.push('--agent', 'pdfpal', prompt)
     }
       result = await new Promise<AgentAnswer>((resolve, reject) => {
-        const child = spawn(launch.binary, [...launch.prefix, ...args], { cwd, windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+        const child = spawn(launch.binary, [...launch.prefix, ...args], { cwd, env: agentEnvironment(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
         const stdout: Buffer[] = []
         const fail = (error: unknown) => { clearTimeout(timer); reject(error) }
         child.stdout.on('data', data => stdout.push(Buffer.from(data)))

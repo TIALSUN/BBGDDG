@@ -4,6 +4,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto'
 import { z } from 'zod'
 import type { PdfpalConfig } from './config.js'
 import { PdfpalError } from './types.js'
+import { getDesktopMasterKey } from './ai-secrets.js'
 
 export const cliIds = ['codex', 'claude', 'workbuddy', 'deepseek-harness', 'opencode'] as const
 export type CliId = typeof cliIds[number]
@@ -50,7 +51,8 @@ export class AiSettingsStore {
     fs.renameSync(temp, this.file)
   }
   private encryptionKey(): Buffer {
-    if (process.env.PDFPAL_AI_SECRET_KEY) return Buffer.from(process.env.PDFPAL_AI_SECRET_KEY, 'hex')
+    const desktopKey = getDesktopMasterKey()
+    if (desktopKey) return desktopKey
     const file = path.join(this.config.dataDir, '.ai-secret-key')
     if (!fs.existsSync(file)) fs.writeFileSync(file, randomBytes(32), { mode: 0o600, flag: 'wx' })
     return fs.readFileSync(file)
