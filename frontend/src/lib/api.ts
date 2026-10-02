@@ -19,6 +19,12 @@ async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
   return res.json()
 }
 
+export interface UiPreferences { readerTopCollapsed: boolean }
+export const uiPreferencesApi = {
+  get: () => apiFetch<UiPreferences>('/ui/preferences'),
+  save: (preferences: UiPreferences) => apiFetch<UiPreferences>('/ui/preferences', { method: 'PUT', body: JSON.stringify(preferences) }),
+}
+
 export interface AiUsage { provider: string; model: string; inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedTokens?: number; costUsd?: number; costEstimated?: boolean; recordedAt: string }
 export interface UsageSummary { calls: number; reportedCalls: number; inputTokens: number; outputTokens: number; cachedTokens: number; totalTokens: number; last?: AiUsage }
 export interface AgentInfo { id: string; label: string; kind: 'cli' | 'api'; installed: boolean; available: boolean; model: string; status: string; quota: string; usage: UsageSummary }

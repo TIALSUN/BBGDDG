@@ -32,10 +32,17 @@ try {
  assert.equal((await api.put(origin+'/api/ai/cli/claude',{data:{command:probeFile,model:''}})).status(),200);
  const envProbe=await api.post(origin+'/api/chat',{data:{project_id:project.id,source_id:source.id,message:'合成环境隔离验证',agent:'claude'}});
  assert.equal(envProbe.status(),200);assert.match(await envProbe.text(),/"text":"\[\]"/);
+ await page.getByRole('button',{name:'收起顶部',exact:true}).click();
+ await page.getByRole('button',{name:'展开顶部',exact:true}).waitFor();
+ await page.waitForFunction(()=>document.querySelector('.reader-top-toggle')?.getAttribute('aria-disabled')==='false');
+ assert.equal((await(await api.get(origin+'/api/ui/preferences')).json()).readerTopCollapsed,true);
  await electron.close();electron=undefined;await assert.rejects(fetch(origin+'/api/health',{signal:AbortSignal.timeout(2000)}));
  electron=await launch();page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
  const probe=await api.post(origin+'/api/ai/api/api-compatible/test');assert.equal(probe.status(),200);
  const history=await(await api.get(`${origin}/api/projects/${project.id}/sources/${source.id}/chat`)).json();assert.equal(history.messages[1].usage.totalTokens,66);
  assert.equal((await(await api.get(origin+'/api/agents')).json()).default,'api-compatible');
+ await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);
+ await page.getByRole('button',{name:'展开顶部',exact:true}).waitFor();
+ assert.equal((await(await api.get(origin+'/api/ui/preferences')).json()).readerTopCollapsed,true);
  console.log(JSON.stringify({nativeApp:'passed',providers:8,windowsKeyProtection:'passed',apiAndUsage:'passed',restartPersistence:'passed',aiEnvironmentIsolation:'passed',realProviderRequests:0}));
 } finally {await electron?.close();await new Promise(resolve=>mock.close(resolve));}

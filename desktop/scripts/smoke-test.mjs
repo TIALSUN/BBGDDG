@@ -38,6 +38,12 @@ try {
   const endpoint = `${origin}/api/projects/${project.id}/sources/${source.id}/annotations`;
   await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);
   await page.locator('[data-pdf-page="1"] .textLayer span').first().waitFor({ timeout: 30000 });
+  const expandedHeight = (await page.getByTestId('pdf-scroll-area').boundingBox()).height;
+  await page.getByRole('button', { name: '收起顶部', exact: true }).click();
+  await page.getByRole('button', { name: '展开顶部', exact: true }).waitFor();
+  await page.waitForFunction(()=>document.querySelector('.reader-top-toggle')?.getAttribute('aria-disabled')==='false');
+  assert.ok((await page.getByTestId('pdf-scroll-area').boundingBox()).height > expandedHeight + 80);
+  assert.equal((await (await api.get(origin + '/api/ui/preferences')).json()).readerTopCollapsed, true);
   const expected = await page.evaluate(() => {
     const span = [...document.querySelectorAll('[data-pdf-page="1"] .textLayer span')].find(el => el.textContent?.includes('Test page'));
     const range = document.createRange(); range.selectNodeContents(span);

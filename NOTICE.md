@@ -6,7 +6,7 @@ BBGDDG 是 PDFPal 的独立衍生项目。重构和改名不消除原版权。�
 - 原作者：Andre Paim Lemos（Git 提交署名）及 PDFPal contributors。
 - 上游基线：3d415ee（Persist PDF reading progress）。完整历史随 Git 仓库保留。
 - 独立项目的前身：PDFPal 本地改版 2.1.1，67c4fcf。
-- BBGDDG 独立版本：1.0.0。
+- BBGDDG 首个独立版本：1.0.0。
 
 ## 许可证据
 

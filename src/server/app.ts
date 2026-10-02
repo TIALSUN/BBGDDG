@@ -24,6 +24,7 @@ import { resolvePdf, excerptFromText } from '../core/pdf.js'
 import { relatedPapers } from '../core/research.js'
 import { BbgddgError } from '../core/types.js'
 import { installLocalAccess, newAccessToken } from './local-access.js'
+import { readUiPreferences, saveUiPreferences } from '../core/ui-preferences.js'
 
 type Params = { projectId: string; sourceId: string; id: string }
 const now = () => new Date().toISOString()
@@ -51,6 +52,8 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   })
 
   app.get('/api/health', async () => ({ status: 'ok' }))
+  app.get('/api/ui/preferences', async () => readUiPreferences(config.dataDir))
+  app.put('/api/ui/preferences', async request => saveUiPreferences(config.dataDir, request.body))
   app.get('/api/auth/me', async () => ({ email: 'local@localhost', name: 'Local User', picture: '' }))
   app.post('/api/auth/logout', async () => ({ ok: true }))
   app.get('/api/agents', async () => ({ default: aiSettings.defaultProvider() || config.agent, agents: agentService.list() }))

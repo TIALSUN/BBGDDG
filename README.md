@@ -2,11 +2,12 @@
 
 中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-当前版本：**1.0.0**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
+当前版本：**1.0.1**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
 ## 功能
 
 - 中文深色主页与阅读页，项目管理、本地 PDF 导入、中文字体资源和阅读进度。
+- 阅读页支持“收起顶部 / 展开顶部”，收起后保留标题、返回项目、AI 切换和设置；本机记住选择，重新打开软件后仍然有效。
 - 按文字位置保存高亮，支持取消高亮、编辑注释和删除；项目与文献笔记支持 Markdown 和公式。
 - 主页与阅读页共用 AI 选择：可用工具亮显，未安装或未配置工具变浅。
 - Codex、Claude Code、OpenCode、DeepSeek Harness 和可配置的 WorkBuddy 适配器。
