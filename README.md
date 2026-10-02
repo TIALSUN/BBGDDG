@@ -242,3 +242,7 @@ The npm package contains the compiled TypeScript server/CLI and the built React 
 - 密钥不回显，使用 AES-GCM 本机加密。Windows 桌面版另以系统凭据保护主密钥，数据仍位于原用户数据目录，升级保留文献与笔记。源码开发模式的本地密钥文件应和数据目录一起保护。
 
 本地开发约定见 `AGENTS.md`：每轮修改验证后自动提交 Git，不自动推送。
+
+## 本地接口访问保护（2.1.1）
+
+桌面版每次启动生成随机会话口令，通过 HttpOnly、SameSite=Strict cookie 自动授权，不需要手动登录。文献、笔记、AI 配置、问答与静态文件均要求有效会话；拒绝非本机 Host、跨站来源及来源缺失的 cookie 修改请求。浏览器模式请使用 serve 输出的当前启动链接，其片段中的口令不会进入 HTTP 请求日志；该链接仅供本人使用，重启后失效。未授权直接访问本机端口会返回 401。页面限制脚本与网络来源，拒绝嵌入其他页面。

@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildServer } from '../../src/server/app.js'
+import { buildTestServer as buildServer } from '../helpers/server-utils.js'
 import { cleanup, testConfig } from '../helpers/test-utils.js'
 
 test('Fastify server exposes health and project CRUD', async () => {

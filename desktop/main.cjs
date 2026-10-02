@@ -7,7 +7,7 @@ const { randomBytes } = require('node:crypto');
 app.setName('PDFPal');
 if (process.env.PDFPAL_DESKTOP_USER_DATA_DIR) app.setPath('userData', path.resolve(process.env.PDFPAL_DESKTOP_USER_DATA_DIR));
 app.setAppUserModelId('local.pdfpal.desktop');
-let window, service, log, origin, quitting = false;
+let window, service, log, origin, accessToken, quitting = false;
 const runtime = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'runtime');
 const dataDir = path.join(app.getPath('userData'), 'data');
 const logPath = path.join(app.getPath('userData'), 'desktop.log');
@@ -49,8 +49,8 @@ function startService() {
     const timer = setTimeout(() => reject(new Error('本地文献服务启动超时。')), 45000);
     service.once('error', error => { clearTimeout(timer); reject(error); });
     service.on('message', message => {
-      if (message?.type === 'ready' && Number.isInteger(message.port)) {
-        clearTimeout(timer); origin = `http://127.0.0.1:${message.port}`; resolve(origin);
+      if (message?.type === 'ready' && Number.isInteger(message.port) && /^[a-f0-9]{64}$/.test(message.accessToken)) {
+        clearTimeout(timer); origin = `http://127.0.0.1:${message.port}`; accessToken = message.accessToken; resolve(origin);
       }
     });
     service.once('exit', (code, signal) => {
@@ -114,6 +114,7 @@ async function createWindow() {
   });
   await window.loadFile(path.join(__dirname, 'loading.html'));
   const url = await startService();
+  await window.webContents.session.cookies.set({ url, name: 'pdfpal_session', value: accessToken, httpOnly: true, sameSite: 'strict', path: '/' });
   await window.loadURL(url);
 }
 async function stopService() {

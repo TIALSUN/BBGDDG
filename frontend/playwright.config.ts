@@ -6,13 +6,14 @@ export default defineConfig({
   expect: { timeout: 10_000 },
   use: {
     baseURL: 'http://localhost:8201',
+    extraHTTPHeaders: { 'x-pdfpal-token': 'e'.repeat(64) },
     trace: 'on-first-retry',
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH
       ? { launchOptions: { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } }
       : {}),
   },
   webServer: {
-    command: `cd .. && PDFPAL_DATA_DIR=/tmp/pdfpal_e2e_data_${process.pid} node dist/cli/index.js serve --no-open --port 8201`,
+    command: 'node e2e/serve.mjs',
     port: 8201,
     reuseExistingServer: false,
     timeout: 15_000,

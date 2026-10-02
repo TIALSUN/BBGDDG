@@ -1,3 +1,4 @@
+import { localRequests } from './test-api.mjs';
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -20,13 +21,16 @@ try {
   page.on('pageerror', e => errors.push(e.message));
   await page.getByRole('heading', { name: '我的研究项目' }).waitFor({ timeout: 60000 });
   origin = new URL(page.url()).origin;
-  assert.equal((await page.request.get(origin + '/api/health')).status(), 200);
+  const api=localRequests(page,origin);
+  assert.equal((await fetch(origin+'/api/projects')).status,401);
+  assert.ok(!(await page.evaluate(()=>document.cookie)).includes('pdfpal_session')); 
+  assert.equal((await api.get(origin + '/api/health')).status(), 200);
   const prefs = await electron.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.getLastWebPreferences());
   assert.equal(prefs.nodeIntegration, false); assert.equal(prefs.contextIsolation, true); assert.equal(prefs.sandbox, true);
-  const agents = await (await page.request.get(origin + '/api/agents')).json();
+  const agents = await (await api.get(origin + '/api/agents')).json();
   if (process.env.PDFPAL_EXPECT_CODEX === '1') assert.ok(agents.agents.some(a => a.id === 'codex' && a.available));
-  const project = await (await page.request.post(origin + '/api/projects', { data: { title: '桌面版验证', description: '本地 PDF 与注释持久化' } })).json();
-  const response = await page.request.post(`${origin}/api/projects/${project.id}/sources/upload`, {
+  const project = await (await api.post(origin + '/api/projects', { data: { title: '桌面版验证', description: '本地 PDF 与注释持久化' } })).json();
+  const response = await api.post(`${origin}/api/projects/${project.id}/sources/upload`, {
     multipart: { file: { name: '桌面测试.pdf', mimeType: 'application/pdf', buffer: fs.readFileSync(path.join(work, 'pdfpal', 'test', 'fixtures', 'sample.pdf')) } }
   });
   assert.equal(response.status(), 200); const source = await response.json();
@@ -46,7 +50,7 @@ try {
   await page.getByLabel('我的理解').fill('桌面软件的中文注释，关闭后保留。');
   await page.getByRole('button', { name: '保存注释', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('.editor-actions')?.textContent.includes('已保存'));
-  let annotations = await (await page.request.get(endpoint)).json();
+  let annotations = await (await api.get(endpoint)).json();
   assert.equal(annotations.length, 1); assert.equal(annotations[0].note, '桌面软件的中文注释，关闭后保留。');
   const highlight = page.locator('[data-annotation-id]').first();
   const actual = await highlight.boundingBox();
@@ -61,7 +65,7 @@ try {
   page.once('dialog', d => d.accept());
   await page.getByRole('button', { name: '取消高亮', exact: true }).click();
   await page.waitForFunction(() => !document.querySelector('[data-annotation-id]'));
-  assert.equal((await (await page.request.get(endpoint)).json()).length, 0);
+  assert.equal((await (await api.get(endpoint)).json()).length, 0);
   assert.deepEqual(errors, []);
   console.log(JSON.stringify({ executable: target, nativeSQLite: 'passed', bundledServer: 'passed', codexDetected: 'passed', pdfUpload: 'passed', highlightGeometry: 'passed', annotationPersistence: 'passed', cancelHighlight: 'passed', rendererIsolation: 'passed', pageErrors: errors }));
 } finally {

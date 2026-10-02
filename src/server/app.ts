@@ -23,12 +23,14 @@ import { z } from 'zod'
 import { resolvePdf, excerptFromText } from '../core/pdf.js'
 import { relatedPapers } from '../core/research.js'
 import { PdfpalError } from '../core/types.js'
+import { installLocalAccess, newAccessToken } from './local-access.js'
 
 type Params = { projectId: string; sourceId: string; id: string }
 const now = () => new Date().toISOString()
 
-export async function buildServer(config: PdfpalConfig) {
-  const app = Fastify({ logger: { redact: ['req.headers.authorization', 'req.headers.x-api-key'] }, bodyLimit: 30 * 1024 * 1024 })
+export async function buildServer(config: PdfpalConfig, options: { accessToken?: string } = {}) {
+  const app = Fastify({ logger: { redact: ['req.headers.authorization', 'req.headers["x-api-key"]', 'req.headers["x-pdfpal-token"]', 'req.headers.cookie'] }, bodyLimit: 30 * 1024 * 1024 })
+  installLocalAccess(app, options.accessToken || newAccessToken())
   const db = openDatabase(config)
   const projects = new ProjectService(db)
   const sources = new SourceService(db, config)
@@ -40,11 +42,6 @@ export async function buildServer(config: PdfpalConfig) {
   const agentService = new AgentService(config)
   await app.register(cors, { origin: false })
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } })
-  app.addHook('onRequest', async (request, reply) => {
-    if (request.url.startsWith('/api/ai/') && request.method !== 'GET' && request.headers.origin && request.headers.origin !== `http://${request.headers.host}`) {
-      return reply.status(403).send({ detail: 'AI 设置只允许从本机 PDFPal 页面修改。' })
-    }
-  })
 
   app.setErrorHandler((error, _request, reply) => {
     const message = error instanceof Error ? error.message : String(error)
@@ -261,9 +258,10 @@ function registerResearchRoutes(app: any, db: import('better-sqlite3').Database,
 }
 
 export async function startServer(config: PdfpalConfig, options: { openBrowser: boolean }): Promise<void> {
-  const app = await buildServer(config)
+  const accessToken = newAccessToken()
+  const app = await buildServer(config, { accessToken })
   await app.listen({ host: config.host, port: config.port })
-  const url = `http://localhost:${config.port}`
+  const url = `http://localhost:${config.port}/unlock#${accessToken}`
   process.stdout.write(`pdfpal: running at ${url}\n`)
   if (options.openBrowser) await open(url).catch(() => process.stderr.write(`pdfpal: open ${url} in your browser\n`))
 }

@@ -1,6 +1,6 @@
 {
   "name": "pdfpal",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Local PDF research assistant and CLI",
   "license": "MIT",
   "type": "module",
