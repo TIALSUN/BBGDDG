@@ -18,10 +18,11 @@ interface Props {
   url: string
   pages: number
   initialPage?: number
-  pageRequest?: {page:number;key:number;excerpt?:string}
+  pageRequest?: {page:number;key:number;excerpt?:string;rects?:PageRect[]}
   isResizing?: boolean
   onPageChange?: (page: number) => void
-  onTextSelected?: (text: string) => void
+  onTextSelected?: (text: string, anchors?:{page:number;text:string;rects:PageRect[]}[]) => void
+  onAnchoredNote?: (anchors:{page:number;text:string;rects:PageRect[]}[])=>void
   annotations?: Annotation[]
   onHighlightCreate?: (data: { page_number: number; x1: number; y1: number; x2: number; y2: number; rects: PageRect[]; text: string; color: string }) => void
   onHighlightClick?: (annotation: Annotation) => void
@@ -73,6 +74,18 @@ function getSelectionPageRects(selection: Selection): { page: number; bbox: Page
   return { page: pageNum, bbox, rects }
 }
 
+function getSelectionAnchors(selection:Selection,container:HTMLElement){
+ const range=selection.getRangeAt(0),clientRects=Array.from(range.getClientRects()).filter(r=>r.width>0&&r.height>0)
+ return Array.from(container.querySelectorAll<HTMLElement>('.react-pdf__Page[data-page-number]')).flatMap(page=>{
+  const box=page.getBoundingClientRect();if(!box.width||!box.height)return []
+  const rects=clientRects.filter(r=>r.top<box.bottom&&r.bottom>box.top&&r.left<box.right&&r.right>box.left).map(r=>({x1:Math.max(0,(r.left-box.left)/box.width),y1:Math.max(0,(r.top-box.top)/box.height),x2:Math.min(1,(r.right-box.left)/box.width),y2:Math.min(1,(r.bottom-box.top)/box.height)})).filter(r=>r.x2>r.x1&&r.y2>r.y1)
+  if(!rects.length)return []
+  const walker=document.createTreeWalker(page.querySelector('.textLayer')||page,NodeFilter.SHOW_TEXT);let node:Node|null,text=''
+  while((node=walker.nextNode())){if(!range.intersectsNode(node))continue;const value=node.textContent||'';text+=value.slice(node===range.startContainer?range.startOffset:0,node===range.endContainer?range.endOffset:value.length)}
+  return [{page:Number(page.dataset.pageNumber),text:text.trim(),rects}]
+ })
+}
+
 const ZOOM_LEVELS = [0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
 
 function normalizePage(page: number | undefined): number {
@@ -94,7 +107,7 @@ const PDF_OPTIONS = {
 
 export default function PdfViewer({
   url, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
-  annotations, onHighlightCreate, onNoteCreate, onHighlightClick, onHighlightDelete,
+  annotations, onHighlightCreate, onNoteCreate, onAnchoredNote, onHighlightClick, onHighlightDelete,
 }: Props) {
   const requestedPage = normalizePage(pageRequest?.page??initialPage)
   const [numPages, setNumPages] = useState(0)
@@ -111,7 +124,7 @@ export default function PdfViewer({
   const [scale, setScale] = useState(1.0)
   const [fitWidth, setFitWidth] = useState(true)
   const [containerWidth, setContainerWidth] = useState(800)
-  const [bubble, setBubble] = useState<{ x: number; y: number; text: string; coords: ReturnType<typeof getSelectionPageRects> } | null>(null)
+  const [bubble, setBubble] = useState<{ x: number; y: number; text: string; coords: ReturnType<typeof getSelectionPageRects>;anchors:{page:number;text:string;rects:PageRect[]}[] } | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const currentPageRef = useRef(requestedPage)
@@ -173,15 +186,18 @@ export default function PdfViewer({
         if (!anchor || !container.contains(anchor)) return
         const rect = container.getBoundingClientRect()
         const coords = getSelectionPageRects(selection)
-        setBubble({ x: e.clientX - rect.left, y: e.clientY - rect.top, text, coords })
+        setBubble({ x: e.clientX - rect.left, y: e.clientY - rect.top, text, coords,anchors:getSelectionAnchors(selection,container) })
       }, 80)
     }
     const handleMouseDown = (e: MouseEvent) => {
       if (!(e.target as HTMLElement).closest('[data-ask-bubble]')) setBubble(null)
     }
+    const handleSelectionChange=()=>{const selection=window.getSelection();if(!selection||selection.isCollapsed)return;const range=selection.getRangeAt(0),box=range.getBoundingClientRect();handleMouseUp({clientX:box.left,clientY:box.bottom} as MouseEvent)}
+    document.addEventListener('selectionchange',handleSelectionChange)
     document.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('mousedown', handleMouseDown)
     return () => {
+      document.removeEventListener('selectionchange',handleSelectionChange)
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('mousedown', handleMouseDown)
     }
@@ -189,13 +205,14 @@ export default function PdfViewer({
 
   const handleAsk = () => {
     if (!bubble) return
-    onTextSelected?.(bubble.text)
+    onTextSelected?.(bubble.text,bubble.anchors)
     setBubble(null)
     window.getSelection()?.removeAllRanges()
   }
 
   const handleHighlight = (withNote=false) => {
     if (!bubble?.coords) return
+    if(withNote&&onAnchoredNote&&bubble.anchors.length){onAnchoredNote(bubble.anchors);setBubble(null);window.getSelection()?.removeAllRanges();return}
     const { page, bbox, rects } = bubble.coords
     const create = withNote ? onNoteCreate : onHighlightCreate
     create?.({ page_number: page, x1: bbox.x1, y1: bbox.y1, x2: bbox.x2, y2: bbox.y2, rects, text: bubble.text, color: highlightColor })
@@ -345,7 +362,7 @@ export default function PdfViewer({
               <LazyPdfPage
                 key={i}
                 pageNumber={pageNum}
-                citation={pageRequest?.page===pageNum&&pageRequest.excerpt?{key:pageRequest.key,excerpt:pageRequest.excerpt}:undefined}
+                citation={pageRequest?.page===pageNum&&(pageRequest.excerpt||pageRequest.rects?.length)?{key:pageRequest.key,excerpt:pageRequest.excerpt||'',rects:pageRequest.rects}:undefined}
                 pageWidth={pageWidth}
                 pageScale={pageScale}
                 onPageRendered={notifyPageRendered}
@@ -403,7 +420,7 @@ export default function PdfViewer({
 
 interface LazyPdfPageProps {
   pageNumber: number
-  citation?: {key:number;excerpt:string}
+  citation?: {key:number;excerpt:string;rects?:PageRect[]}
   pageWidth?: number
   pageScale?: number
   annotations: Annotation[]
@@ -452,6 +469,7 @@ function LazyPdfPage({ pageNumber, citation, pageWidth, pageScale, annotations, 
     if(!citation||!textReady||!pageRef.current)return
     const page=pageRef.current.querySelector('.react-pdf__Page') as HTMLElement|null
     if(!page)return
+    if(citation.rects?.length){setCitationRects(citation.rects);const timer=setTimeout(()=>setCitationRects([]),8000);return()=>clearTimeout(timer)}
     const walker=document.createTreeWalker(page.querySelector('.textLayer')??page,NodeFilter.SHOW_TEXT)
     const chars:{node:Node;offset:number}[]=[];let text='',node:Node|null
     while((node=walker.nextNode())){const value=node.textContent??'';for(let i=0;i<value.length;i++)if(!/\s/.test(value[i])){text+=value[i];chars.push({node,offset:i})}}

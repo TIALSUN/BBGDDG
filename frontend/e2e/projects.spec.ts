@@ -3,7 +3,7 @@ import { createProjectViaApi } from './helpers';
 
 test('project library exposes its search and creation controls', async ({ page }) => {
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: '我的研究项目', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的项目', exact: true })).toBeVisible();
   await expect(page.getByLabel('搜索项目')).toBeVisible();
 });
 test('a project can be created through the Chinese modal and persists', async ({ page }) => {
@@ -29,7 +29,7 @@ test('renaming from the workspace persists after reload', async ({ page }) => {
   await page.goto(`/projects/${project.id}`);
   await expect(page.getByRole('heading', { name: project.title, exact: true })).toBeVisible();
   page.once('dialog', dialog => dialog.accept('Renamed Project'));
-  await page.getByRole('button', { name: '编辑项目名称', exact: true }).click();
+  await page.getByRole('button', { name: '项目设置：修改名称', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Renamed Project', exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Renamed Project', exact: true })).toBeVisible();
@@ -39,6 +39,7 @@ test('deleting from the library removes the project and stays removed', async ({
   await page.goto('/');
   await expect(page.getByRole('heading', { name: project.title, exact: true })).toBeVisible();
   page.once('dialog', dialog => dialog.accept());
+  await page.getByLabel(`项目${project.title}的更多操作`).click();
   await page.getByRole('button', { name: '删除项目' + project.title, exact: true }).click();
   await expect(page.getByRole('heading', { name: project.title, exact: true })).not.toBeVisible();
   await page.reload();

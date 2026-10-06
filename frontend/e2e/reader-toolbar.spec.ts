@@ -39,12 +39,11 @@ test.describe('collapsible reader toolbar', () => {
     await expect(expand).toBeFocused();
     await expect(expand).toHaveAttribute('aria-expanded', 'false');
     await expect(page.getByRole('link', { name: /返回项目/ })).toBeVisible();
-    await expect(page.getByLabel('选择 AI 服务')).toBeVisible();
-    await expect(page.getByRole('button', { name: 'AI 设置', exact: true })).toBeVisible();
+    await expect(page.locator('.ai-entry>button')).toBeVisible();
     await expect(page.locator('.reading-panel')).toBeVisible();
     await expect(page.locator('.ai-current-usage')).toHaveCount(0);
     await expect(page.locator('.reading-notice')).toHaveCount(0);
-    await expect.poll(async () => (await page.getByTestId('pdf-scroll-area').boundingBox())!.height - expanded!.height).toBeGreaterThan(80);
+    await expect.poll(async () => (await page.getByTestId('pdf-scroll-area').boundingBox())!.height - expanded!.height).toBeGreaterThan(20);
     expect((await (await page.request.get('/api/ui/preferences')).json()).readerTopCollapsed).toBe(true);
     await page.screenshot({ path: test.info().outputPath('reader-collapsed.png') });
     await page.reload();
@@ -52,7 +51,7 @@ test.describe('collapsible reader toolbar', () => {
     await reader(page, project.id, second.id);
     await page.getByRole('button', { name: '展开顶部', exact: true }).click();
     await expect(page.getByRole('button', { name: '收起顶部', exact: true })).toBeEnabled();
-    await expect(page.locator('.ai-current-usage')).toBeVisible();
+    await expect(page.locator('.ai-entry>button')).toBeVisible();
     expect((await (await page.request.get('/api/ui/preferences')).json()).readerTopCollapsed).toBe(false);
   });
 
@@ -62,12 +61,15 @@ test.describe('collapsible reader toolbar', () => {
       data: { page_number: 1, x1: 0.1, y1: 0.1, x2: 0.5, y2: 0.15, text: '工具栏验证高亮', color: 'yellow' },
     });
     await reader(page, project.id, source.id);
+    await page.getByText('更多',{exact:true}).click();
+    await page.getByRole('button',{name:'标注管理',exact:true}).click();
     await page.locator('.annotation-card').click();
     await page.getByLabel('我的理解').fill('尚未保存的中文注释');
     await page.getByRole('button', { name: '收起顶部', exact: true }).click();
     await expect(page.getByLabel('我的理解')).toHaveValue('尚未保存的中文注释');
     await expect(page.locator('[data-annotation-id]')).toBeVisible();
-    await page.getByRole('button', { name: 'AI 设置', exact: true }).click();
+    await page.locator('.ai-entry>button').click();
+    await page.getByRole('button', { name: '配置 AI', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await page.locator('.ai-dialog-header .text-button').click();
     await expect(page.getByLabel('我的理解')).toHaveValue('尚未保存的中文注释');

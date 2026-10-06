@@ -8,7 +8,7 @@ async function fixture(page:Page){
  const source=await upload('引用测试.pdf'),second=await upload('另一份文献.pdf');
  await page.goto(`/projects/${project.id}/sources/${source.id}`);
  await expect(page.locator('[data-pdf-page="1"] .textLayer span').first()).toBeVisible();
- await page.getByRole('button',{name:'AI 对话',exact:true}).click();
+ await page.getByRole('button',{name:'AI 问答',exact:true}).click();
  return {project,source,second};
 }
 const answer=(references:any[]=[])=>'data: '+JSON.stringify({text:'根据原文 [1]。未知引用 [99]。代码 `[1]`。',references,contextScope:'document'})+'\n\ndata: [DONE]\n\n';
@@ -20,7 +20,7 @@ test('editable memory survives reload; clear and pause are explicit',async({page
  await page.getByLabel('自动整理较早对话').uncheck();
  await page.getByRole('button',{name:'保存记忆'}).click();
  await expect(page.getByText('尚未保存', {exact:true})).toBeHidden();
- await page.reload();await page.getByRole('button',{name:'AI 对话',exact:true}).click();
+ await page.reload();await page.getByRole('button',{name:'AI 问答',exact:true}).click();
  await expect(page.getByRole('button',{name:/对话记忆/})).toContainText('自动整理已暂停');
  await page.getByRole('button',{name:/对话记忆/}).click();
  await expect(page.getByLabel('记忆摘要')).toHaveValue('我的研究结论：先掌握基本概念。');
@@ -64,7 +64,7 @@ test('cross-document citation opens its own document and highlights the referenc
 test('history citations remain clickable and a failed request preserves the question',async({page})=>{
  const {project,source}=await fixture(page);
  await page.route(`**/api/projects/${project.id}/sources/${source.id}/chat`,route=>route.fulfill({json:{messages:[{role:'assistant',content:'保存的引用 [1]',references:[{id:1,sourceId:source.id,title:source.title,page:2,excerpt:'Test page 2',canJump:true}],contextScope:'document'}]}}));
- await page.reload();await page.getByRole('button',{name:'AI 对话',exact:true}).click();await expect(page.locator('.citation-link')).toHaveCount(1);
+ await page.reload();await page.getByRole('button',{name:'AI 问答',exact:true}).click();await expect(page.locator('.citation-link')).toHaveCount(1);
  await page.route('**/api/chat',route=>route.fulfill({status:400,json:{detail:'合成测试：服务暂不可用'}}));const input=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await input.fill('不要丢失的问题');await input.press('Enter');await expect(input).toHaveValue('不要丢失的问题');await expect(page.getByText('⚠️ 合成测试：服务暂不可用')).toBeVisible();
 });
 test('project chat exposes independent memory and cross-document citations',async({page})=>{

@@ -84,3 +84,20 @@ test('deletes a note', () => {
     assert.equal(service.list(projectId).length, 0)
   } finally { cleanup(config, db) }
 })
+
+test('note anchors persist independently, preserve file identity and reject foreign sources', () => {
+  const config=testConfig(),db=testDb(config)
+  try{
+    const project=createProject(db),source=createSource(db,project),foreign=createSource(db,createProject(db))
+    db.prepare('UPDATE sources SET content_hash=? WHERE id=?').run('original',source)
+    const service=new NoteService(db,config)
+    const note=service.create(project,{sourceSelector:source,content:'My understanding',tags:['concept'],anchors:[{sourceId:source,page:1,text:'testing',rects:[{x1:.1,y1:.2,x2:.6,y2:.3}]}],origin:{kind:'ai',content:'An explanation',createdAt:'2026-10-07'}})
+    assert.equal(service.resolve(project,note.id).anchors?.[0]?.contentHash,'original')
+    db.prepare('UPDATE sources SET content_hash=? WHERE id=?').run('changed',source)
+    assert.equal(service.update(project,note.id,{title:'Revised'}).anchors?.[0]?.contentHash,'original')
+    assert.equal(service.listBySource(project,source)[0]?.origin?.content,'An explanation')
+    assert.throws(()=>service.create(project,{anchors:[{sourceId:foreign,page:1,text:'foreign',rects:[]}]}))
+    assert.throws(()=>service.create(project,{anchors:[{sourceId:source,page:2,text:'invalid page',rects:[]}]}))
+    assert.throws(()=>service.create(project,{anchors:[{sourceId:source,page:1,text:'bad rectangle',rects:[{x1:.8,y1:.1,x2:.2,y2:.3}]}]}))
+  }finally{cleanup(config,db)}
+})

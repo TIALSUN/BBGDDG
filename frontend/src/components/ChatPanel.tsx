@@ -4,10 +4,11 @@ import ChatAnswer from './ChatAnswer'
 import { chatApi } from '../lib/api'
 import { useAgent, notifyAiChange } from '../hooks/useAgent'
 import AiUsageView from './AiUsageView'
-import type { ChatReference, ContextScope, AiUsage } from '../lib/api'
+import type { ChatReference, ContextScope, AiUsage, NoteAnchor } from '../lib/api'
 import AgentSelect from './AgentSelect'
 
 interface Message {
+  anchors?:NoteAnchor[]
   references?: ChatReference[]
   contextScope?: ContextScope
   usage?: AiUsage
@@ -25,18 +26,22 @@ interface Props {
   projectId?: string | null
   sourceId?: string | null
   // v1 legacy
+  selectedAnchors?:NoteAnchor[]
+  onExtract?:(content:string,anchors:NoteAnchor[])=>void
   onReference?: (reference:ChatReference)=>void
   sessionId?: string | null
   initialMessages?: { role: string; content: string }[]
 }
 
-export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onSelectedTextUsed, projectId, sourceId, sessionId, initialMessages, onReference }: Props) {
+export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onSelectedTextUsed, projectId, sourceId, sessionId, initialMessages, onReference,selectedAnchors,onExtract }: Props) {
   // Retained in the component contract for older callers; context is now
   // loaded by the server-side ChatService from source IDs.
   void pdfText
   void pdfUrl
   const [messages, setMessages] = useState<Message[]>(initialMessages?.map(m => ({ role: m.role as 'user'|'assistant', content: m.content })) ?? [])
-  const [input, setInput] = useState('')
+  const draftKey=`bbgddg:question:${projectId}:${sourceId||'project'}`
+  const [input, setInput] = useState(()=>sessionStorage.getItem(draftKey)||'')
+  useEffect(()=>{sessionStorage.setItem(draftKey,input)},[input,draftKey])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [scope,setScope]=useState<ContextScope>('document')
@@ -149,7 +154,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
         }
       }
 
-      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage,references,contextScope:answerScope }])
+      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage,references,contextScope:answerScope,anchors:scope==='selection'?selectedAnchors||[]:[] }])
       setMemoryRefresh(v=>v+1)
       notifyAiChange()
     } catch (e: any) {
@@ -204,6 +209,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
       {scope==='selection'&&selection&&<details className="selection-preview"><summary>选中文字 · {selection.length} 字</summary><p>{selection}</p><button type="button" className="text-button" disabled={loading} onClick={()=>{setSelection('');setScope('document');onSelectedTextUsed?.()}}>取消选文</button></details>}
       <ChatMemoryPanel projectId={projectId} sourceId={sourceId} refresh={memoryRefresh} disabled={loading}/>
       {/* Selection hint banner */}
+      <div className="quick-questions">{['解释这段','解释概念','逐步讲解推导'].map(question=><button className="secondary" key={question} disabled={loading||disabled} onClick={()=>setInput((selection?`> ${selection}\n\n`:'')+question)}>{question}</button>)}</div>
       {selectedText && !disabled && (
         <div style={{
           padding: '8px 14px',
@@ -253,7 +259,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
               whiteSpace: msg.role === 'user' ? 'pre-wrap' : undefined,
             }}>
               {msg.role === 'assistant' ? (
-                <div><ChatAnswer content={msg.content} references={msg.references} contextScope={msg.contextScope} projectId={projectId} onReference={onReference}/><AiUsageView usage={msg.usage}/></div>
+                <div><ChatAnswer content={msg.content} references={msg.references} contextScope={msg.contextScope} projectId={projectId} onReference={onReference}/><AiUsageView usage={msg.usage}/>{onExtract&&<button className="secondary" onClick={e=>{const container=e.currentTarget.parentElement?.querySelector('.chat-answer');const selection=window.getSelection();const selected=selection&&!selection.isCollapsed&&container?.contains(selection.anchorNode)&&container.contains(selection.focusNode)?selection.toString():'';onExtract(selected||msg.content,msg.anchors||[])}}>摘入笔记</button>}</div>
               ) : msg.content}
             </div>
           </div>

@@ -61,6 +61,7 @@ export interface Source {
   url?: string
   title?: string
   pages: number
+  content_hash?:string
   last_page_read: number
   pdf_text?: string
   excerpt?: string
@@ -79,7 +80,11 @@ export interface Collection {
   source_count: number
 }
 
+export interface NoteAnchor {sourceId:string;page:number;text:string;contentHash?:string;rects:{x1:number;y1:number;x2:number;y2:number}[]}
 export interface Note {
+  anchors?:NoteAnchor[]
+  tags?:string[]
+  origin?:{kind:'ai';content:string;createdAt:string}|null
   id: string
   project_id: string
   source_id?: string
@@ -155,11 +160,11 @@ export const notesApi = {
   list: (projectId: string) => apiFetch<Note[]>(`/projects/${projectId}/notes`),
   listBySource: (projectId: string, sourceId: string) =>
     apiFetch<Note[]>(`/projects/${projectId}/sources/${sourceId}/notes`),
-  create: (projectId: string, data: { title?: string; content?: string; source_id?: string }) =>
+  create: (projectId: string, data: { title?: string; content?: string; source_id?: string;anchors?:NoteAnchor[];tags?:string[];origin?:Note['origin'] }) =>
     apiFetch<{ id: string }>(`/projects/${projectId}/notes`, { method: 'POST', body: JSON.stringify(data) }),
   get: (projectId: string, noteId: string) =>
     apiFetch<Note>(`/projects/${projectId}/notes/${noteId}`),
-  update: (projectId: string, noteId: string, data: { title?: string; content?: string }) =>
+  update: (projectId: string, noteId: string, data: { title?: string; content?: string;anchors?:NoteAnchor[];tags?:string[];origin?:Note['origin'] }) =>
     apiFetch(`/projects/${projectId}/notes/${noteId}`, { method: 'PUT', body: JSON.stringify(data) }),
   delete: (projectId: string, noteId: string) =>
     apiFetch(`/projects/${projectId}/notes/${noteId}`, { method: 'DELETE' }),

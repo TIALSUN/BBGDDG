@@ -29,6 +29,9 @@ export interface Source {
 }
 
 export interface Note {
+  anchors?: import('./note-links.js').NoteAnchor[]
+  tags?: string[]
+  origin?: import('./note-links.js').NoteMetadata['origin']
   id: string
   project_id: string
   source_id: string | null

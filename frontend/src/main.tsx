@@ -9,6 +9,7 @@ import './ai.css'
 import ProjectsPage from './pages/LibraryPage'
 import ProjectView from './pages/ProjectWorkspace'
 import NoteEditor from './pages/NoteEditor'
+import SettingsPage from './pages/SettingsPage'
 import App from './pages/ReaderPage'
 import ProjectChat from './pages/ProjectChat'
 import LoginPage from './components/LoginPage'
@@ -66,6 +67,7 @@ function Root() {
       <Routes>
         {/* Projects list — home */}
         <Route path="/" element={<ProjectsPage />} />
+        <Route path="/settings" element={<SettingsPage />} />
 
         {/* Project view */}
         <Route path="/projects/:projectId" element={<ProjectView />} />

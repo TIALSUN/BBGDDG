@@ -22,6 +22,7 @@ export async function mockAuth(page: Page) {
  * Create a project via the API and return its id + title.
  */
 export async function createProjectViaApi(page: Page, title = 'Test Project'): Promise<{ id: string; title: string }> {
+  await page.route('**/api/agents',route=>route.fulfill({status:200,contentType:'application/json',body:JSON.stringify({default:'codex',agents:[{id:'codex',label:'Codex',kind:'cli',installed:true,available:true,model:'测试模型',status:'仅用于隔离测试',quota:'测试用量',usage:{calls:0,reportedCalls:0,inputTokens:0,outputTokens:0,cachedTokens:0,totalTokens:0}}]})}))
   const res = await page.request.post('/api/projects', {
     data: { title, description: '' },
   });

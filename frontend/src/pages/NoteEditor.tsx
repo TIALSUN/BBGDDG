@@ -1,83 +1,15 @@
-import { useState, useEffect, useRef } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import { notesApi } from '../lib/api'
-
-export default function NoteEditor() {
-  const { projectId, noteId } = useParams<{ projectId: string; noteId: string }>()
-  const navigate = useNavigate()
-  // note state
-  const [title, setTitle] = useState('')
-  const [content, setContent] = useState('')
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(true)
-  const [preview, setPreview] = useState(true)
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    if (projectId && noteId) {
-      notesApi.get(projectId, noteId).then(n => {
-        setTitle(n.title); setContent(n.content || '')
-      })
-    }
-  }, [projectId, noteId])
-
-  const scheduleSave = (newTitle: string, newContent: string) => {
-    setSaved(false)
-    if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(async () => {
-      if (!projectId || !noteId) return
-      setSaving(true)
-      await notesApi.update(projectId, noteId, { title: newTitle, content: newContent })
-      setSaving(false); setSaved(true)
-    }, 1000)
-  }
-
-  const updateTitle = (v: string) => { setTitle(v); scheduleSave(v, content) }
-  const updateContent = (v: string) => { setContent(v); scheduleSave(title, v) }
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: 'var(--bg)' }}>
-      {/* Topbar */}
-      <div style={{ height: 44, background: 'var(--panel)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px', flexShrink: 0 }}>
-        <button onClick={() => navigate(`/projects/${projectId}`)} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>← 项目</button>
-        <div style={{ flex: 1 }} />
-        <span style={{ fontSize: 11, color: saving ? '#6366f1' : saved ? '#4b5563' : '#f59e0b' }}>
-          {saving ? "正在保存…" : saved ? "已保存" : "未保存"}
-        </span>
-        <button onClick={() => setPreview(p => !p)} style={{ background: preview ? '#1e1b4b' : 'var(--panel)', border: '1px solid var(--border)', color: preview ? '#a5b4fc' : '#9ca3af', borderRadius: 8, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}>
-          {preview ? "✏️ 编辑" : "👁 预览"}
-        </button>
-      </div>
-
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)', background: 'var(--panel)', flexShrink: 0 }}>
-          <input
-            value={title}
-            onChange={e => updateTitle(e.target.value)}
-            placeholder="笔记标题…"
-            style={{ width: '100%', background: 'none', border: 'none', color: '#fff', fontSize: 16, fontWeight: 700, outline: 'none', fontFamily: 'inherit' }}
-          />
-        </div>
-
-        {!preview ? (
-          <textarea
-            value={content}
-            onChange={e => updateContent(e.target.value)}
-            placeholder="在这里记录笔记…（支持 Markdown）"
-            style={{ flex: 1, background: 'var(--bg)', border: 'none', color: '#e5e7eb', padding: '16px 20px', fontSize: 13, resize: 'none', fontFamily: "'SF Mono', 'Fira Code', monospace", lineHeight: 1.7, outline: 'none' }}
-          />
-        ) : (
-          <div style={{ flex: 1, overflow: 'auto', padding: '20px 28px', background: 'var(--bg)' }}>
-            <div className="prose">
-              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={[rehypeKatex]}>{content || "*暂无内容…*"}</ReactMarkdown>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
+import {useEffect,useState} from 'react'
+import {Link,useNavigate,useParams} from 'react-router-dom'
+import {notesApi,type Note} from '../lib/api'
+import NoteWorkbench from '../components/NoteWorkbench'
+import ReaderPage from './ReaderPage'
+import AiControlPanel from '../components/AiControlPanel'
+export default function NoteEditor(){
+ const {projectId,noteId}=useParams(),navigate=useNavigate()
+ const [note,setNote]=useState<Note>(),[error,setError]=useState('')
+ useEffect(()=>{let cancelled=false;if(projectId&&noteId)notesApi.get(projectId,noteId).then(n=>{if(!cancelled)setNote(n)}).catch(e=>{if(!cancelled)setError(e.message)});return()=>{cancelled=true}},[projectId,noteId])
+ if(error)return <p role="alert">{error}</p>
+ if(!note||!projectId)return <div className="empty-state">正在打开笔记…</div>
+ if(note.source_id)return <ReaderPage documentSourceId={note.source_id} initialNoteId={note.id}/>
+ return <div className="project-note-page"><header className="study-heading"><Link to={`/projects/${projectId}?tab=notes`}>← 项目笔记</Link><h1>项目笔记</h1><AiControlPanel compact minimized/></header><NoteWorkbench projectId={projectId} initialNoteId={note.id} onAnchor={anchor=>navigate(`/projects/${projectId}/sources/${anchor.sourceId}`,{state:{citation:{...anchor,excerpt:anchor.text}}})}/></div>
 }

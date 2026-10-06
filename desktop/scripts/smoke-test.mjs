@@ -20,7 +20,7 @@ let origin;
 try {
   const page = await electron.firstWindow();
   page.on('pageerror', e => errors.push(e.message));
-  await page.getByRole('heading', { name: '我的研究项目' }).waitFor({ timeout: 60000 });
+  await page.getByRole('heading', { name: '我的项目' }).waitFor({ timeout: 60000 });
   origin = new URL(page.url()).origin;
   const api=localRequests(page,origin);
   assert.equal((await fetch(origin+'/api/projects')).status,401);
@@ -53,7 +53,8 @@ try {
     return { x: box.x, y: box.y, width: box.width, height: box.height };
   });
   await page.locator('[data-ask-bubble]').waitFor();
-  await page.getByRole('button', { name: '添加注释', exact: true }).click();
+  await page.getByRole('button', { name: '高亮', exact: true }).click();
+  await page.locator('[data-annotation-id]').first().click();
   await page.getByLabel('我的理解').fill('桌面软件的中文注释，关闭后保留。');
   await page.getByRole('button', { name: '保存注释', exact: true }).click();
   await page.waitForFunction(() => document.querySelector('.editor-actions')?.textContent.includes('已保存'));
@@ -65,6 +66,8 @@ try {
   assert.ok(Math.abs(actual.width - expected.width) < 2 && Math.abs(actual.height - expected.height) < 2);
   await page.reload();
   await page.locator('[data-annotation-id]').first().waitFor();
+  await page.getByText('更多',{exact:true}).click();
+  await page.getByRole('button',{name:'标注管理',exact:true}).click();
   await page.locator('.annotation-card').click();
   assert.equal(await page.getByLabel('我的理解').inputValue(), annotations[0].note);
   if (packaged) await page.screenshot({ path: path.join(userData, 'BBGDDG-桌面软件.png') });

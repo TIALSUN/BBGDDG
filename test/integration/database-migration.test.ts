@@ -17,15 +17,15 @@ test('opens and migrates a legacy sessions database', () => {
     assert.equal((db.prepare('SELECT COUNT(*) count FROM projects').get() as { count: number }).count, 1)
     assert.equal((db.prepare('SELECT COUNT(*) count FROM sources').get() as { count: number }).count, 1)
     assert.equal((db.prepare('SELECT COUNT(*) count FROM chat_messages').get() as { count: number }).count, 1)
-    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 9)
+    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 10)
   } finally { cleanup(config, db) }
 })
 
-test('a fresh database provisions reading progress at schema version 9', () => {
+test('a fresh database provisions reading progress at schema version 10', () => {
   const config = testConfig()
   const db = openDatabase(config)
   try {
-    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 9)
+    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 10)
     assert.ok(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='collections'").get())
     assert.ok((db.prepare('PRAGMA table_info(annotations)').all()).some(c => c.name === 'note'))
     assert.ok((db.prepare('PRAGMA table_info(chat_messages)').all()).some(c => c.name === 'usage_json'))
@@ -52,7 +52,7 @@ test('adds the rects column when migrating a pre-existing annotations table', ()
   legacy.close()
   const db = openDatabase(config)
   try {
-    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 9)
+    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 10)
     const row = db.prepare('SELECT rects FROM annotations WHERE id=?').get('a1') as { rects: string | null }
     assert.equal(row.rects, null)
   } finally { cleanup(config, db) }
@@ -72,7 +72,7 @@ test('drops a pre-existing artifacts table when migrating an older database', ()
   legacy.close()
   const db = openDatabase(config)
   try {
-    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 9)
+    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 10)
     assert.equal(db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name='artifacts'").get(), undefined)
   } finally { cleanup(config, db) }
 })
@@ -93,7 +93,7 @@ test('adds page progress to a version 5 database without changing existing sourc
 
   const db = openDatabase(config)
   try {
-    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 9)
+    assert.equal((db.prepare('SELECT MAX(version) version FROM schema_migrations').get() as { version: number }).version, 10)
     const source = db.prepare('SELECT title,pages,last_page_read FROM sources WHERE id=?').get('s1') as { title: string; pages: number; last_page_read: number }
     assert.deepEqual(source, { title: 'Existing Book', pages: 370, last_page_read: 1 })
   } finally { cleanup(config, db) }

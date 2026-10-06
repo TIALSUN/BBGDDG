@@ -210,11 +210,11 @@ function registerDocumentRoutes(app: Awaited<ReturnType<typeof import('fastify')
   app.get('/api/projects/:projectId/notes', async (request: any) => notes.list(request.params.projectId).map(preview))
   app.post('/api/projects/:projectId/notes', async (request: any) => {
     const body = request.body
-    return { id: notes.create(request.params.projectId, { title: body.title, content: body.content, sourceSelector: body.source_id ?? undefined }).id }
+    return { id: notes.create(request.params.projectId, { title: body.title, content: body.content, sourceSelector: body.source_id ?? undefined, anchors:body.anchors, tags:body.tags, origin:body.origin }).id }
   })
   app.get('/api/projects/:projectId/notes/:id', async (request: any) => notes.resolve(request.params.projectId, request.params.id))
   app.put('/api/projects/:projectId/notes/:id', async (request: any) => {
-    notes.update(request.params.projectId, request.params.id, { title: request.body.title, content: request.body.content })
+    notes.update(request.params.projectId, request.params.id, { title: request.body.title, content: request.body.content, anchors:request.body.anchors, tags:request.body.tags, origin:request.body.origin })
     return { ok: true }
   })
   app.delete('/api/projects/:projectId/notes/:id', async (request: any) => { notes.delete(request.params.projectId, request.params.id); return { ok: true } })

@@ -6,7 +6,7 @@ import type { Database as DatabaseType } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
 
-const CURRENT_SCHEMA = 9
+const CURRENT_SCHEMA = 10
 
 function columnExists(db: DatabaseType, table: string, column: string): boolean {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(row => row.name === column)
@@ -183,6 +183,12 @@ function migrate(db: DatabaseType): void {
     if (!columnExists(db,'chat_messages','references_json')) db.exec('ALTER TABLE chat_messages ADD COLUMN references_json TEXT')
     if (!columnExists(db,'chat_messages','context_scope')) db.exec('ALTER TABLE chat_messages ADD COLUMN context_scope TEXT')
     db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (9, datetime('now'))").run()
+  }
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=10').get()) {
+    db.transaction(()=>{
+      if (!columnExists(db,'notes','metadata_json')) db.exec("ALTER TABLE notes ADD COLUMN metadata_json TEXT NOT NULL DEFAULT '{}'")
+      db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (10, datetime('now'))").run()
+    })()
   }
 }
 

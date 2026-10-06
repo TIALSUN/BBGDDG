@@ -15,7 +15,7 @@ const executablePath=process.argv[2]||path.join(desktop,'node_modules/electron/d
 const launch=()=>_electron.launch({executablePath,args:process.argv[2]?[]:[desktop],env:{...process.env,BBGDDG_DESKTOP_USER_DATA_DIR:userData},timeout:60000});
 let electron,origin,api;
 try {
- electron=await launch();let page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
+ electron=await launch();let page=await electron.firstWindow();await page.getByRole('heading',{name:'我的项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
  const agents=await(await api.get(origin+'/api/agents')).json();assert.equal(agents.agents.length,8);assert.ok(agents.agents.find(a=>a.id==='codex').available);
  assert.equal(await electron.evaluate(({safeStorage})=>safeStorage.isEncryptionAvailable()),true);
  assert.ok(fs.existsSync(path.join(userData,'ai-secret-key.bin')));assert.equal(fs.existsSync(path.join(userData,'data','.ai-secret-key')),false);
@@ -24,14 +24,14 @@ try {
  await api.put(origin+'/api/ai/default',{data:{provider:'api-compatible'}});
  const project=await(await api.post(origin+'/api/projects',{data:{title:'桌面多 AI 验证'}})).json();
  const upload=await api.post(`${origin}/api/projects/${project.id}/sources/upload`,{multipart:{file:{name:'桌面 AI 测试.pdf',mimeType:'application/pdf',buffer:fs.readFileSync(path.join(repo,'test/fixtures/sample.pdf'))}}});assert.equal(upload.status(),200);const source=await upload.json();
- await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);await page.locator('[data-pdf-page="1"] .textLayer span').first().waitFor();await page.getByRole('button',{name:'AI 对话',exact:true}).click();
+ await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);await page.locator('[data-pdf-page="1"] .textLayer span').first().waitFor();await page.getByRole('button',{name:'AI 问答',exact:true}).click();
  const textarea=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await textarea.fill('验证本地 PDF 问答');await textarea.press('Enter');await page.locator('.ai-message-usage').filter({hasText:'desktop-test-model'}).waitFor();
  assert.match(await page.locator('.ai-message-usage').innerText(),/55/);
  await page.getByRole('button',{name:'[1]',exact:true}).click();await page.locator('[data-citation-highlight]').first().waitFor();
  for(let turn=0;turn<6;turn++){const result=await api.post(origin+'/api/chat',{data:{project_id:project.id,source_id:source.id,message:'Test page '+turn,agent:'api-compatible',context_scope:'document'}});assert.equal(result.status(),200)}
  const memoryUrl=`${origin}/api/projects/${project.id}/sources/${source.id}/memory`;
  const memory=await(await api.get(memoryUrl)).json();assert.ok(memory.summary.includes('本地 PDF'));assert.ok(memory.throughId>0);
- await page.reload();await page.getByRole('button',{name:'AI 对话',exact:true}).click();await page.getByRole('button',{name:/对话记忆/}).click();await page.waitForFunction(()=>document.querySelector('textarea[aria-label="记忆摘要"]')?.value.includes('本地 PDF'));
+ await page.reload();await page.getByRole('button',{name:'AI 问答',exact:true}).click();await page.getByRole('button',{name:/对话记忆/}).click();await page.waitForFunction(()=>document.querySelector('textarea[aria-label="记忆摘要"]')?.value.includes('本地 PDF'));
  await page.screenshot({path:path.join(userData,'BBGDDG-长期记忆与引用.png')});
  assert.equal((await api.put(memoryUrl,{data:{summary:memory.summary,enabled:false,revision:memory.revision}})).status(),200);
  const probeFile=path.join(userData,'env-probe.mjs');
@@ -44,7 +44,7 @@ try {
  await page.waitForFunction(()=>document.querySelector('.reader-top-toggle')?.getAttribute('aria-disabled')==='false');
  assert.equal((await(await api.get(origin+'/api/ui/preferences')).json()).readerTopCollapsed,true);
  await electron.close();electron=undefined;await assert.rejects(fetch(origin+'/api/health',{signal:AbortSignal.timeout(2000)}));
- electron=await launch();page=await electron.firstWindow();await page.getByRole('heading',{name:'我的研究项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
+ electron=await launch();page=await electron.firstWindow();await page.getByRole('heading',{name:'我的项目'}).waitFor({timeout:60000});origin=new URL(page.url()).origin;api=localRequests(page,origin);
  const probe=await api.post(origin+'/api/ai/api/api-compatible/test');assert.equal(probe.status(),200);
  const history=await(await api.get(`${origin}/api/projects/${project.id}/sources/${source.id}/chat`)).json();assert.equal(history.messages[1].usage.totalTokens,66);
  assert.equal((await(await api.get(origin+'/api/agents')).json()).default,'api-compatible');
