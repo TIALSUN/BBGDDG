@@ -27,6 +27,9 @@ const result = spawnSync(process.execPath, [npm, 'ci', '--omit=dev', '--ignore-s
 if (result.status !== 0) process.exit(result.status ?? 1);
 // Root dependencies must be installed with the same Node used for packaging.
 fs.cpSync(path.join(repo, 'node_modules', 'better-sqlite3', 'build'), path.join(backend, 'node_modules', 'better-sqlite3', 'build'), { recursive: true });
+if (process.platform === 'win32' && process.arch === 'x64') {
+  fs.cpSync(path.join(repo, 'node_modules', '@napi-rs', 'canvas-win32-x64-msvc'), path.join(backend, 'node_modules', '@napi-rs', 'canvas-win32-x64-msvc'), { recursive: true });
+}
 const nodeVersion = process.versions.node;
 const license = await fetch(`https://raw.githubusercontent.com/nodejs/node/v${nodeVersion}/LICENSE`);
 if (!license.ok) throw new Error('Unable to retrieve bundled Node license');
