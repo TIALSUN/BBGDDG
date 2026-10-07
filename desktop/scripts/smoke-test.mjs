@@ -8,6 +8,7 @@ const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const work = path.dirname(repo);
 const require = createRequire(path.join(repo, 'package.json'));
 const { _electron } = require('playwright');
+const { expect } = require('@playwright/test');
 const target = process.argv[2] || path.join(repo, 'desktop', 'node_modules', 'electron', 'dist', 'electron.exe');
 const packaged = !!process.argv[2];
 const userData = fs.mkdtempSync(path.join(work, 'desktop-test-'));
@@ -69,7 +70,8 @@ try {
   await page.getByText('更多',{exact:true}).click();
   await page.getByRole('button',{name:'标注管理',exact:true}).click();
   await page.locator('.annotation-card').click();
-  assert.equal(await page.getByLabel('我的理解').inputValue(), annotations[0].note);
+  // Selecting the card updates React state; its effect then restores the draft.
+  await expect(page.getByLabel('我的理解')).toHaveValue(annotations[0].note);
   if (packaged) await page.screenshot({ path: path.join(userData, 'BBGDDG-桌面软件.png') });
   await page.locator('[data-annotation-id]').first().click();
   page.once('dialog', d => d.accept());
