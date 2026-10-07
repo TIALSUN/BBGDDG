@@ -2,11 +2,13 @@
 
 中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-当前版本：**1.2.0**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
+当前版本：**1.2.1**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
-## 1.2.0 阅读与笔记工作流
+## 1.2 阅读与笔记工作流
 
-[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [验证记录](docs/VALIDATION-1.2.0.md)
+[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [修正版验证记录](docs/VALIDATION-1.2.1.md)
+
+1.2.1 修复旧发行包缺少 PDF 原生依赖导致的启动失败。便携使用请选择 `Portable.zip`，解压完整目录后运行 `BBGDDG.exe`。便携 EXE 自解压启动器未通过本轮验证，因此不提供该格式。安装版已完成实际安装及安装后运行验证。1.2.0 下载包存在启动缺陷，请使用最新版本。
 
 - 首页按项目组织，提供最近项目和紧凑 AI 入口；项目内保留文件夹和子文件夹。
 - 项目笔记与文献笔记分组，阅读与独立复习页共用同一份笔记。
