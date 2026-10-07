@@ -13,11 +13,11 @@ npm run prepare:runtime
 npm run package
 ```
 
-`prepare:runtime` 复制构建结果、安装生产依赖、保留对应 Node ABI 的 SQLite 模块，并生成图标。构建结果默认写入项目根目录的 `release` 文件夹，可通过 electron-builder 的 `--config.directories.output` 改写。安装包不包含个人文献、数据库和账号。
+`prepare:runtime` 复制构建结果、安装生产依赖、保留对应 Node ABI 的 SQLite 模块与 Windows PDF Canvas 原生模块，并生成图标。构建结果默认写入项目根目录的 `release` 文件夹。`npm run package` 生成 NSIS 安装版及便携 ZIP。安装包不包含个人文献、数据库和账号。
 
 ## 运行
 
-安装版创建桌面和开始菜单快捷方式；便携版无需安装。两种版本在同一个 Windows 用户下共享数据。双击启动独立窗口，关闭窗口后自动停止本地服务，重复启动会聚焦已有窗口。
+安装版创建桌面和开始菜单快捷方式；便携 ZIP 无需安装，完整解压后运行其中的 `BBGDDG.exe`。1.2.1 不提供未经启动验证的便携自解压 EXE。两种版本在同一个 Windows 用户下共享数据。双击启动独立窗口，关闭窗口后自动停止本地服务，重复启动会聚焦已有窗口。
 
 按 Alt 可显示中文菜单，通过“文件 → 打开数据文件夹”备份文献和笔记。AI 功能依赖本机已安装并登录的 Codex、Claude 或 OpenCode；阅读、笔记与高亮不需要 AI 登录。桌面版会自动寻找 Codex 应用自带的命令行程序，也支持原有环境变量与数据目录中的 config.json。
 
