@@ -2,7 +2,7 @@
 
 中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-当前版本：**1.2.1**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
+当前版本：**1.2.3**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
 ## 1.2 阅读与笔记工作流
 
@@ -47,7 +47,7 @@ npm start
 
 开发服务：`npm run dev`；不打开浏览器：`node dist/cli/index.js serve --no-open`。
 
-先新建项目，再“添加文献 → 本地 PDF”。主页或阅读页的“AI 设置”可配置命令行、接口地址、模型及密钥。
+先新建项目，再“添加文献 → 本地文档”，支持 PDF、MD、TXT、DOCX；也可以直接把多个文件拖进项目文献区。主页或阅读页的“AI 设置”可配置命令行、接口地址、模型及密钥。
 
 WorkBuddy 桌面客户端不等于已提供可直接问答的命令行，需要填写实际可用的命令和参数；不会自动改用 CodeBuddy。DeepSeek Harness 使用 `dsh` headless 配置，认证与工具权限由 Harness 管理。
 
@@ -99,3 +99,9 @@ Windows 原生测试见 [desktop/README.md](desktop/README.md)。测试使用临
 ## 许可与致谢
 
 新增改动采用 MIT，见 [LICENSE](LICENSE)。上游 package.json 声明 MIT，但没有独立 LICENSE；该事实和作者 Andre Paim Lemos 的来源记录保留在 [NOTICE.md](NOTICE.md)。第三方组件保留各自许可。源码不包含个人文献、数据库或凭据。
+
+## 文字与 Word 文档
+
+MD、TXT、DOCX 会保存原文件，并提取文字用于阅读、项目检索和 AI 问答。文字文档按段落定位，选中文字后可向 AI 提问或添加关联原文的笔记；点击笔记引用返回对应段落。Markdown 支持基本标题、列表、表格和代码块。DOCX 保留可提取的文字、标题及段落，图片、分页和复杂 Word 排版暂不还原。旧版 DOC 请另存为 DOCX 或 PDF。TXT 支持 UTF-8、带 BOM 的 UTF-16；其他编码请先转换。每个文件上限 25 MB，文字上限 4 MB，DOCX 主体 XML 上限 8 MB。
+
+多文件拖入时按顺序处理，显示当前文件和成功/失败数量；单个文件失败不影响其他文件。导入文件不会移动或删除外部原文件，已有文档和笔记保留。

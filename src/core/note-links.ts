@@ -3,6 +3,7 @@ import { z } from 'zod'
 const rect = z.object({x1:z.number().min(0).max(1),y1:z.number().min(0).max(1),x2:z.number().min(0).max(1),y2:z.number().min(0).max(1)})
   .refine(r=>r.x2>r.x1&&r.y2>r.y1,'Invalid rectangle')
 export const noteAnchorSchema = z.object({
+  unit:z.enum(['page','paragraph']).optional(),
   sourceId:z.string().min(1), page:z.number().int().positive(), text:z.string().max(20000),
   contentHash:z.string().max(128).optional(), rects:z.array(rect).max(500).default([]),
 })

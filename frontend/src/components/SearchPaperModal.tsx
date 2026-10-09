@@ -132,7 +132,7 @@ export default function SearchPaperModal({ projectId, onClose, onAdded }: Props)
 
   const handleUpload = async () => {
     if (!localFile || uploading) return
-    if (localFile.size > 25 * 1024 * 1024) { setUploadError('PDF 文件不能超过 25 MB。'); return }
+    if (localFile.size > 25 * 1024 * 1024) { setUploadError('文件不能超过 25 MB。'); return }
     setUploading(true); setUploadError('')
     try { onAdded(await sourcesApi.upload(projectId, localFile)) }
     catch (error: unknown) { setUploadError(error instanceof Error ? error.message : '导入失败，请重试。') }
@@ -195,7 +195,7 @@ export default function SearchPaperModal({ projectId, onClose, onAdded }: Props)
         <div style={{ marginBottom: 16 }}>
           <h3 style={{ color: '#fff', margin: '0 0 4px', fontSize: 15 }}>添加文献</h3>
           <p style={{ color: 'var(--muted)', fontSize: 12, margin: 0 }}>
-            选择本地 PDF、搜索论文或直接粘贴链接。
+            选择本地文档、搜索论文或直接粘贴链接。
           </p>
         </div>
 
@@ -203,16 +203,16 @@ export default function SearchPaperModal({ projectId, onClose, onAdded }: Props)
         <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 16, flexShrink: 0 }}>
           {tabBtn('search', "🔍 搜索论文")}
           {tabBtn('url', "🔗 粘贴链接")}
-          {tabBtn('local', '📄 本地 PDF')}
+          {tabBtn('local', '📄 本地文档')}
         </div>
 
         {tab === 'local' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-            <input ref={fileRef} type="file" accept=".pdf,application/pdf" aria-label="选择本地 PDF" style={{ display: 'none' }} disabled={uploading}
+            <input ref={fileRef} type="file" accept=".pdf,.md,.txt,.docx" aria-label="选择本地文档" style={{ display: 'none' }} disabled={uploading}
               onChange={event => { setLocalFile(event.target.files?.[0] ?? null); setUploadError('') }} />
             <button onClick={() => fileRef.current?.click()} disabled={uploading}
               style={{ background: 'var(--bg)', border: '2px dashed var(--border)', borderRadius: 10, padding: 28, color: '#e5e7eb', cursor: uploading ? 'wait' : 'pointer' }}>
-              📂 选择本地 PDF 文件
+              📂 选择本地文档 文件
             </button>
             {localFile && <div style={{ color: '#d1d5db', fontSize: 13, overflowWrap: 'anywhere' }}>{localFile.name} · {(localFile.size / 1024 / 1024).toFixed(2)} MB</div>}
             <p style={{ color: '#9ca3af', fontSize: 12, margin: 0 }}>支持单个 PDF，最大 25 MB。导入后可在此项目中阅读和提问。</p>
@@ -220,7 +220,7 @@ export default function SearchPaperModal({ projectId, onClose, onAdded }: Props)
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               <button onClick={onClose} disabled={uploading} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '8px 16px', cursor: 'pointer' }}>取消</button>
               <button onClick={handleUpload} disabled={!localFile || uploading} style={{ background: !localFile || uploading ? '#3a3a3a' : 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', cursor: !localFile || uploading ? 'not-allowed' : 'pointer' }}>
-                {uploading ? '正在导入…' : '导入 PDF'}
+                {uploading ? '正在导入…' : '导入文档'}
               </button>
             </div>
           </div>

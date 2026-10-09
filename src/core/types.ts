@@ -49,7 +49,7 @@ export interface Passage {
   score: number
 }
 
-export interface ChatReference { id: number; sourceId: string; title: string; page: number; excerpt: string; canJump: boolean }
+export interface ChatReference { locationUnit?:'page'|'paragraph'; id: number; sourceId: string; title: string; page: number; excerpt: string; canJump: boolean }
 export type ContextScope = 'selection' | 'document' | 'project'
 export interface AskResult {
   references?: ChatReference[]

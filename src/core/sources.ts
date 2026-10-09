@@ -10,6 +10,8 @@ import { ProjectService } from './projects.js'
 import { RetrievalService } from './retrieval.js'
 import type { Source } from './types.js'
 import { BbgddgError } from './types.js'
+import { extractDocument, DOCUMENT_LIMIT } from './documents.js'
+import { createHash } from 'node:crypto'
 
 const now = () => new Date().toISOString()
 
@@ -54,7 +56,7 @@ export class SourceService {
       if (!fs.existsSync(absolute) || !fs.statSync(absolute).isFile()) throw new BbgddgError('FILE_NOT_FOUND', `PDF file not found: ${location}`, 3)
       bytes = fs.readFileSync(absolute)
       originalLocation = absolute
-      if (bytes.subarray(0, 4).toString() !== '%PDF') throw new BbgddgError('NOT_A_PDF', `File is not a PDF: ${location}`, 2)
+      return this.addFile(projectSelector, bytes, originalLocation, title, collectionSelector)
     }
     return this.addPdf(projectSelector, bytes, title, collectionSelector, originalLocation, url)
   }
@@ -90,6 +92,30 @@ export class SourceService {
       fs.rmSync(stored.localPath, { force: true })
       throw error
     }
+    return source
+  }
+
+  async addFile(projectSelector: string, bytes: Buffer, filename: string, title?: string, collectionSelector?: string): Promise<Source> {
+    if (bytes.length > DOCUMENT_LIMIT) throw new BbgddgError('FILE_TOO_LARGE', '文件不能超过 25 MB。', 2)
+    if (bytes.subarray(0, 4).toString() === '%PDF' || path.extname(filename).toLowerCase() === '.pdf') return this.addPdf(projectSelector, bytes, title, collectionSelector, filename)
+    const project = this.projects.resolve(projectSelector)
+    const extracted = extractDocument(bytes, filename), id = randomUUID(), timestamp = now()
+    const collectionId = collectionSelector ? this.collections.resolve(project.id, collectionSelector).id : null
+    const localPath = path.join(this.config.filesDir, id + path.extname(filename).toLowerCase())
+    const source: Source = { id, project_id: project.id, type: 'text', url: null, title: title?.trim() || path.basename(filename),
+      pdf_text: extracted.text, pages: extracted.pages, last_page_read: 1, created_at: timestamp, accessed_at: timestamp,
+      original_location: filename, local_path: path.basename(localPath), media_type: extracted.mediaType, byte_size: bytes.length,
+      content_hash: createHash('sha256').update(bytes).digest('hex'), collection_id: collectionId }
+    fs.mkdirSync(this.config.filesDir, { recursive: true })
+    fs.writeFileSync(localPath, bytes, { mode: 0o600, flag: 'wx' })
+    try {
+      this.db.transaction(() => {
+        this.db.prepare(`INSERT INTO sources(id,project_id,type,url,title,pdf_text,pages,last_page_read,created_at,accessed_at,original_location,local_path,media_type,byte_size,content_hash,collection_id)
+          VALUES (@id,@project_id,@type,@url,@title,@pdf_text,@pages,@last_page_read,@created_at,@accessed_at,@original_location,@local_path,@media_type,@byte_size,@content_hash,@collection_id)`).run(source)
+        this.retrieval.index(id, extracted.text)
+        this.db.prepare('UPDATE projects SET accessed_at=? WHERE id=?').run(timestamp, project.id)
+      })()
+    } catch (error) { fs.rmSync(localPath, { force: true }); throw error }
     return source
   }
 
@@ -144,6 +170,16 @@ export class SourceService {
     let total = 0
     for (const source of targets) {
       let text = source.pdf_text ?? ''
+      if (source.type === 'text') {
+        const stored = this.pdfPath(source)
+        if (stored) {
+          const extracted = extractDocument(fs.readFileSync(stored), stored)
+          text = extracted.text
+          this.db.prepare('UPDATE sources SET pdf_text=?,pages=?,last_page_read=MIN(last_page_read,?) WHERE id=?').run(text, extracted.pages, extracted.pages, source.id)
+        }
+        total += this.retrieval.index(source.id, text)
+        continue
+      }
       const localPdf = this.pdfPath(source)
       if (!refetch && localPdf) {
         const extracted = await extractPdf(fs.readFileSync(localPdf))

@@ -15,6 +15,8 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.m
 type PageRect = { x1: number; y1: number; x2: number; y2: number }
 
 interface Props {
+  text?: string
+  markdown?: boolean
   url: string
   pages: number
   initialPage?: number

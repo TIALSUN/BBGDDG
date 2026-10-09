@@ -61,6 +61,7 @@ export interface Source {
   url?: string
   title?: string
   pages: number
+  media_type?:string
   content_hash?:string
   last_page_read: number
   pdf_text?: string
@@ -80,7 +81,7 @@ export interface Collection {
   source_count: number
 }
 
-export interface NoteAnchor {sourceId:string;page:number;text:string;contentHash?:string;rects:{x1:number;y1:number;x2:number;y2:number}[]}
+export interface NoteAnchor {unit?:'page'|'paragraph';sourceId:string;page:number;text:string;contentHash?:string;rects:{x1:number;y1:number;x2:number;y2:number}[]}
 export interface Note {
   anchors?:NoteAnchor[]
   tags?:string[]
@@ -171,7 +172,7 @@ export const notesApi = {
 }
 
 export type ContextScope = 'selection' | 'document' | 'project'
-export interface ChatReference { id:number; sourceId:string; title:string; page:number; excerpt:string; canJump:boolean }
+export interface ChatReference { locationUnit?:'page'|'paragraph'; id:number; sourceId:string; title:string; page:number; excerpt:string; canJump:boolean }
 export interface ChatMemory { summary:string; enabled:boolean; throughId:number; revision:number; updatedAt:string|null }
 const memoryPath=(project:string,source?:string)=>source?`/projects/${project}/sources/${source}/memory`:`/projects/${project}/memory`
 export const memoryApi={

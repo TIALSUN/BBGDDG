@@ -101,14 +101,14 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
     projects.resolve(request.params.projectId)
     try {
       const file = await request.file()
-      if (!file) return reply.status(400).send({ detail: '请选择 PDF 文件。' })
+      if (!file) return reply.status(400).send({ detail: '请选择 PDF、MD、TXT 或 DOCX 文件。' })
       const bytes = await file.toBuffer()
-      if (file.file.truncated) return reply.status(413).send({ detail: 'PDF 文件不能超过 25 MB。' })
-      return await sources.addPdf(request.params.projectId, bytes, undefined, undefined, path.basename(file.filename.replaceAll('\\', '/')))
+      if (file.file.truncated) return reply.status(413).send({ detail: '文件不能超过 25 MB。' })
+      return await sources.addFile(request.params.projectId, bytes, path.basename(file.filename.replaceAll('\\', '/')))
     } catch (error) {
-      if ((error as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') return reply.status(413).send({ detail: 'PDF 文件不能超过 25 MB。' })
+      if ((error as { code?: string }).code === 'FST_REQ_FILE_TOO_LARGE') return reply.status(413).send({ detail: '文件不能超过 25 MB。' })
       if (error instanceof BbgddgError) throw error
-      return reply.status(400).send({ detail: '无法读取此 PDF。请确认文件完整且未加密。' })
+      return reply.status(400).send({ detail: '无法读取此文件。请确认格式受支持、文件完整且未加密。' })
     }
   })
   app.post<{ Body: { url: string; project_id: string; source_id?: string; collection_id?: string } }>('/api/extract', async request => {
@@ -121,7 +121,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   app.get<{ Params: Pick<Params, 'projectId' | 'sourceId'> }>('/api/projects/:projectId/sources/:sourceId/file', async (request, reply) => {
     const source = sources.resolve(request.params.projectId, request.params.sourceId)
     const local = sources.pdfPath(source)
-    if (local) return reply.type('application/pdf').send(fs.createReadStream(local))
+    if (local) return reply.header('Content-Disposition', 'attachment').type(source.media_type || 'application/pdf').send(fs.createReadStream(local))
     // URL-only sources from pre-TypeScript databases remain readable. New
     // sources always have a managed copy, so this is a compatibility path.
     if (source.url) {

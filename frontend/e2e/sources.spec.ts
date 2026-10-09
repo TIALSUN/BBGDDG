@@ -12,7 +12,7 @@ test.describe('Sources management', () => {
 
     await page.goto(`/projects/${project.id}`);
     await expect(page.getByRole('button', { name: '文献', exact: true })).toBeVisible();
-    await expect(page.locator('text=暂无文献。添加 PDF 或创建文献集来整理论文。')).toBeVisible();
+    await expect(page.locator('text=暂无文献。拖入文件，或点击添加文献。')).toBeVisible();
   });
 
   test('add source via URL with mocked extract', async ({ page }) => {
@@ -22,7 +22,7 @@ test.describe('Sources management', () => {
     await mockExtract(page, { title: 'Test Paper: A Study', sourceId: 'src-123' });
 
     await page.goto(`/projects/${project.id}`);
-    await expect(page.locator('text=暂无文献。添加 PDF 或创建文献集来整理论文。')).toBeVisible();
+    await expect(page.locator('text=暂无文献。拖入文件，或点击添加文献。')).toBeVisible();
 
     // Click "Add Source" button (the one in the header, not modal)
     await page.getByRole('button', { name: /添加文献/ }).first().click();

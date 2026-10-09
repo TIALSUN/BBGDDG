@@ -61,7 +61,7 @@ function SourceRow({ source, projectId, drag }: {
       </div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
         {source.pages > 0
-          ? <span style={{ background: '#212121', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: 'var(--muted)' }}>{source.pages} 页</span>
+          ? <span style={{ background: '#212121', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: 'var(--muted)' }}>{source.pages} {source.type==='text'?'段':'页'}</span>
           : <span style={{ background: '#7f1d1d', border: '1px solid #991b1b', borderRadius: 6, padding: '2px 8px', fontSize: 10, color: '#fca5a5' }}>⚠ 失败</span>}
         <button onClick={e => { e.stopPropagation(); setTitle(source.title || source.url || ''); setEditing(true) }} title="重命名"
           style={{ background: 'none', border: '1px solid #3a3a3a', color: 'var(--muted)', cursor: 'pointer', fontSize: 11, padding: '2px 7px', borderRadius: 6 }}>✏️</button>
@@ -80,6 +80,24 @@ export function SourcesTab({ projectId }: { projectId: string }) {
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [fileDrag, setFileDrag] = useState(false)
+  const [importStatus, setImportStatus] = useState('')
+  const [importFailures, setImportFailures] = useState<string[]>([])
+  const importing = useRef(false)
+  async function importFiles(files: File[]) {
+    if (importing.current) return
+    importing.current=true; setImportFailures([])
+    const failures:string[]=[]
+    try {
+      for (const [i,file] of files.entries()) {
+        setImportStatus(`正在导入 ${i+1}/${files.length}：${file.name}`)
+        try { await sourcesApi.upload(projectId,file) }
+        catch(error) { failures.push(`${file.name}：${error instanceof Error?error.message:'导入失败'}`);setImportFailures([...failures]) }
+      }
+      setImportStatus(`导入完成：${files.length-failures.length} 成功，${failures.length} 失败`)
+      await reload()
+    } finally { importing.current=false }
+  }
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const initializedExpanded = useRef(false)
   const [dragItem, setDragItem] = useState<DragItem | null>(null)
@@ -212,7 +230,14 @@ export function SourcesTab({ projectId }: { projectId: string }) {
   const unfiled = sourcesIn.get(null) ?? []
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div data-testid="document-drop-zone" className={fileDrag?'document-drop-zone is-dragging':'document-drop-zone'}
+      onDragOverCapture={e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect='copy';setFileDrag(true)}}}
+      onDragLeave={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setFileDrag(false)}}
+      onDropCapture={e=>{if(e.dataTransfer.types.includes('Files')){e.preventDefault();e.stopPropagation();setFileDrag(false);void importFiles(Array.from(e.dataTransfer.files))}}}
+      style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position:'relative' }}>
+      {fileDrag&&<div className="document-drop-hint">松开即可导入 PDF、MD、TXT、DOCX</div>}
+      {importStatus&&<div role="status" className="document-import-status">{importStatus}</div>}
+      {importFailures.length>0&&<ul role="alert" className="document-import-errors">{importFailures.map((message,i)=><li key={i}>{message}</li>)}</ul>}
       <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--panel)', flexShrink: 0 }}>
         <span style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>文献</span>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -230,7 +255,7 @@ export function SourcesTab({ projectId }: { projectId: string }) {
         {!loading && sources.length === 0 && collections.length === 0 && (
           <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
-            <div>暂无文献。添加 PDF 或创建文献集来整理论文。</div>
+            <div>暂无文献。拖入文件，或点击添加文献。</div>
           </div>
         )}
 
@@ -256,7 +281,7 @@ export function SourcesTab({ projectId }: { projectId: string }) {
         )}
 
         <div onClick={() => setShowAdd(true)} style={{ border: '2px dashed #333', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, color: 'var(--muted)', cursor: 'pointer', padding: '14px 0', fontSize: 12, marginTop: 6 }}>
-          <span>📄</span><span>添加本地 PDF、搜索论文或粘贴链接…</span>
+          <span>📄</span><span>拖入 PDF、MD、TXT、DOCX，或点击选择文件…</span>
         </div>
       </div>
       {showAdd && <SearchPaperModal projectId={projectId} onClose={() => { setShowAdd(false); reload() }} onAdded={s => { setShowAdd(false); setSources(prev => [s, ...prev]) }} />}
