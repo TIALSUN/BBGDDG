@@ -1,7 +1,6 @@
 import type {FastifyInstance} from 'fastify'
 import type Database from 'better-sqlite3'
-import {randomUUID} from 'node:crypto'
-import {validatePng} from '../core/ink-png.js'
+import {createInkExcerpt} from '../core/ink-excerpt.js'
 import {InkService,InkError,inkTargetSchema} from '../core/ink.js'
 export function registerInkRoutes(app:FastifyInstance,db:Database.Database){
  const service=new InkService(db)
@@ -17,9 +16,7 @@ export function registerInkRoutes(app:FastifyInstance,db:Database.Database){
    service.assertTarget(request.params.projectId,target)
    const rect=metadata.rect
    if(!Array.isArray(rect)||rect.length!==4||rect.some(n=>typeof n!=='number'||!Number.isFinite(n)||n<0||n>1)||rect[0]>=rect[2]||rect[1]>=rect[3])return reply.code(400).send({detail:'摘录范围无效。'})
-   const dimensions=validatePng(bytes),id=randomUUID(),result={id,mime:'image/png',...dimensions,sourceId:target.sourceId,page:target.page,contentHash:target.contentHash,rect}
-   db.prepare('INSERT INTO ink_attachments(id,project_id,metadata,bytes) VALUES(?,?,?,?)').run(id,request.params.projectId,JSON.stringify(result),bytes)
-   return result
+   return createInkExcerpt(db,request.params.projectId,target,rect,bytes)
   }catch(error){return reply.code(error instanceof InkError?error.status:400).send({detail:error instanceof Error?error.message:'摘录保存失败。'})}
  })
  app.get<{Params:{projectId:string;id:string}}>('/api/projects/:projectId/ink/attachments/:id',async(request,reply)=>{

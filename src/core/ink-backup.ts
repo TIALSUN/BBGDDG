@@ -10,6 +10,7 @@ import {noteMetadataSchema} from './note-links.js'
 const digest=(bytes:Uint8Array|string)=>createHash('sha256').update(bytes).digest('hex')
 const string=z.string().max(8*1024*1024),id=z.string().min(1).max(160),hash=z.string().regex(/^[a-f0-9]{64}$/)
 const rect=z.object({x1:z.number().min(0).max(1),y1:z.number().min(0).max(1),x2:z.number().min(0).max(1),y2:z.number().min(0).max(1)})
+ .refine(r=>r.x2>r.x1&&r.y2>r.y1,'无效矩形')
 const annotation=z.object({source_id:id,page_number:z.number().int().positive(),text:string,color:z.enum(['yellow','green','blue','pink']),note:string.nullish(),x1:z.number().min(0).max(1),y1:z.number().min(0).max(1),x2:z.number().min(0).max(1),y2:z.number().min(0).max(1),rects:z.string().nullable()})
 const dataSchema=z.object({sources:z.array(z.object({id,content_hash:hash.nullable()})).max(10000),notes:z.array(z.object({id,source_id:id.nullable(),title:z.string().max(10000),content:string,metadata_json:string})).max(10000),ink:z.array(inkDocumentSchema).max(10000),annotations:z.array(annotation).max(10000)})
 const manifestSchema=z.object({version:z.literal(1),files:z.record(z.string(),hash)}).strict()
@@ -18,7 +19,8 @@ export async function createInkBackup(db:Database.Database,_config:BbgddgConfig,
  const files:Record<string,Uint8Array>={}
  const data={sources:db.prepare('SELECT id,content_hash FROM sources WHERE project_id=?').all(projectId),notes:db.prepare('SELECT id,source_id,title,content,metadata_json FROM notes WHERE project_id=?').all(projectId),ink:(db.prepare('SELECT body FROM ink_documents WHERE project_id=?').all(projectId) as {body:string}[]).map(row=>JSON.parse(row.body)),annotations:db.prepare('SELECT source_id,page_number,text,color,note,x1,y1,x2,y2,rects FROM annotations WHERE project_id=?').all(projectId)}
  files['data.json']=strToU8(JSON.stringify(data));if(files['data.json'].length>32*1024*1024)throw new InkError(413,'笔记与标注 JSON 超过 32 MiB，请拆分项目。')
- for(const row of db.prepare('SELECT id,bytes FROM ink_attachments WHERE project_id=?').all(projectId) as {id:string;bytes:Buffer}[])files[`images/${row.id}.png`]=row.bytes
+ const referenced=new Set<string>(data.ink.flatMap((doc:InkDocument)=>doc.blocks.flatMap(block=>(block.images||[]).map(image=>image.attachmentId))))
+ for(const row of db.prepare('SELECT id,bytes FROM ink_attachments WHERE project_id=?').all(projectId) as {id:string;bytes:Buffer}[])if(referenced.has(row.id))files[`images/${row.id}.png`]=row.bytes
  files['manifest.json']=strToU8(JSON.stringify({version:1,files:Object.fromEntries(Object.entries(files).map(([name,bytes])=>[name,digest(bytes)]))}))
  const result=zipSync(files,{level:0});if(result.length>100*1024*1024)throw new InkError(413,'备份超过 100 MiB，请拆分项目。');return result
 }
@@ -29,7 +31,20 @@ function extract(archive:Uint8Array){
  let central=bytes.readUInt32LE(end+16)
  const centralEnd=central+bytes.readUInt32LE(end+12)
  if(centralEnd!==end)throw new InkError(400,'备份目录不完整。')
- for(let i=0;i<bytes.readUInt16LE(end+10);i++){if(central+46>centralEnd||bytes.readUInt32LE(central)!==0x02014b50||((bytes.readUInt32LE(central+38)>>>16)&0xf000)===0xa000||(bytes.readUInt16LE(central+8)&1))throw new InkError(400,'备份包含符号链接、加密或无效目录。');central+=46+bytes.readUInt16LE(central+28)+bytes.readUInt16LE(central+30)+bytes.readUInt16LE(central+32)}
+ const directoryStart=central,intervals:{start:number;end:number}[]=[],names=new Set<string>();let actualSize=0
+ if(bytes.readUInt16LE(end+8)!==bytes.readUInt16LE(end+10)||bytes.readUInt16LE(end+10)>10000)throw new InkError(400,'备份目录条目超限。')
+ for(let i=0;i<bytes.readUInt16LE(end+10);i++){
+  if(central+46>centralEnd||bytes.readUInt32LE(central)!==0x02014b50||((bytes.readUInt32LE(central+38)>>>16)&0xf000)===0xa000)throw new InkError(400,'备份包含符号链接或无效目录。')
+  const flags=bytes.readUInt16LE(central+8),compressed=bytes.readUInt32LE(central+20),original=bytes.readUInt32LE(central+24),length=bytes.readUInt16LE(central+28),local=bytes.readUInt32LE(central+42),next=central+46+length+bytes.readUInt16LE(central+30)+bytes.readUInt16LE(central+32)
+  if(next>centralEnd||flags&9||bytes.readUInt16LE(central+10)!==0||compressed!==original||original>32*1024*1024||(actualSize+=compressed)>200*1024*1024)throw new InkError(400,'备份存储条目大小或压缩方式无效。')
+  const name=bytes.subarray(central+46,central+46+length),text=name.toString('utf8')
+  if(names.has(text)||!(/^(manifest\.json|data\.json|images\/[a-zA-Z0-9-]+\.png)$/).test(text))throw new InkError(400,'备份路径或重复条目无效。');names.add(text)
+  if(local+30>directoryStart||bytes.readUInt32LE(local)!==0x04034b50||bytes.readUInt16LE(local+6)!==flags||bytes.readUInt16LE(local+8)!==0||bytes.readUInt32LE(local+14)!==bytes.readUInt32LE(central+16)||bytes.readUInt32LE(local+18)!==compressed||bytes.readUInt32LE(local+22)!==original||bytes.readUInt16LE(local+26)!==length)throw new InkError(400,'备份本地头与目录不一致。')
+  const dataStart=local+30+length+bytes.readUInt16LE(local+28),dataEnd=dataStart+compressed
+  if(dataEnd>directoryStart||!bytes.subarray(local+30,local+30+length).equals(name))throw new InkError(400,'备份数据边界无效。')
+  intervals.push({start:local,end:dataEnd});central=next
+ }
+ intervals.sort((a,b)=>a.start-b.start);for(let i=1;i<intervals.length;i++)if(intervals[i]!.start<intervals[i-1]!.end)throw new InkError(400,'备份条目数据重叠。')
  if(central!==centralEnd)throw new InkError(400,'备份目录条目不一致。')
  let size=0,count=0
  const seen=new Set<string>()
@@ -40,32 +55,41 @@ function extract(archive:Uint8Array){
  for(const [name,checksum] of Object.entries(manifest.files))if(!files[name]||digest(files[name])!==checksum)throw new InkError(400,'备份校验失败，未恢复任何数据。')
  const data=dataSchema.parse(JSON.parse(strFromU8(files['data.json']||new Uint8Array())))
  for(const note of data.notes)noteMetadataSchema.parse(JSON.parse(note.metadata_json))
- for(const item of data.annotations)if(item.rects)z.array(rect).max(10000).parse(JSON.parse(item.rects))
+ for(const item of data.annotations){rect.parse(item);if(item.rects)z.array(rect).max(10000).parse(JSON.parse(item.rects))}
  for(const [name,bytes] of Object.entries(files))if(name.startsWith('images/'))validatePng(Buffer.from(bytes))
  for(const document of data.ink)for(const block of document.blocks)for(const image of block.images||[])if(!files[`images/${image.attachmentId}.png`])throw new InkError(400,'备份缺少引用图片。')
  return {data,files,archiveDigest:digest(JSON.stringify(Object.entries(manifest.files).sort()))}
 }
 function noteCoordinates(blocks:InkBlock[]):InkBlock[]{return blocks.map(block=>{const points=block.strokes.flatMap(s=>s.points);if(!points.length)return block;const bounds=points.reduce((b,p)=>({minX:Math.min(b.minX,p.x),maxX:Math.max(b.maxX,p.x),minY:Math.min(b.minY,p.y),maxY:Math.max(b.maxY,p.y)}),{minX:Infinity,maxX:-Infinity,minY:Infinity,maxY:-Infinity}),scale=Math.min(900/Math.max(1,bounds.maxX-bounds.minX),99900/Math.max(1,bounds.maxY-bounds.minY));return {...block,height:Math.max(100,Math.min(100000,(bounds.maxY-bounds.minY)*scale+100)),strokes:block.strokes.map(stroke=>({...stroke,width:Math.max(.5,Math.min(32,stroke.width*scale)),points:stroke.points.map(p=>({...p,x:(p.x-bounds.minX)*scale+50,y:(bounds.maxY-p.y)*scale+50}))}))}})}
 export async function restoreInkBackup(db:Database.Database,_config:BbgddgConfig,projectId:string,archive:Uint8Array):Promise<{created:number;duplicates:number;missingSources:number}>{
- const {data,files,archiveDigest}=extract(archive)
+ const {data,files}=extract(archive)
  if(!db.prepare('SELECT id FROM projects WHERE id=?').get(projectId))throw new InkError(404,'找不到恢复目标项目。')
  return db.transaction(()=>{
-  const previous=db.prepare("SELECT id FROM notes WHERE project_id=? AND json_extract(metadata_json,'$.backupDigest')=?").get(projectId,archiveDigest)
-  if(previous)return {created:0,duplicates:data.notes.length+data.ink.length+data.annotations.length,missingSources:0}
   let created=0,duplicates=0,missingSources=0
   const sourceMap=new Map<string,string>(),noteMap=new Map<string,string>(),attachmentMap=new Map<string,string>(),ink=new InkService(db),time=new Date().toISOString()
   for(const source of data.sources){const match=source.content_hash?db.prepare('SELECT id FROM sources WHERE project_id=? AND content_hash=?').get(projectId,source.content_hash) as {id:string}|undefined:undefined;if(match)sourceMap.set(source.id,match.id);else missingSources++}
   function createNote(title:string,content:string,metadata:Record<string,unknown>,sourceId:string|null=null){const noteId=randomUUID();db.prepare('INSERT INTO notes(id,project_id,source_id,title,content,metadata_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?)').run(noteId,projectId,sourceId,title,content,JSON.stringify(metadata),time,time);created++;return noteId}
-  for(const [name,bytes] of Object.entries(files))if(name.startsWith('images/')){const oldId=name.slice(7,-4),newId=randomUUID();attachmentMap.set(oldId,newId);db.prepare('INSERT INTO ink_attachments(id,project_id,metadata,bytes) VALUES(?,?,?,?)').run(newId,projectId,JSON.stringify({id:newId,mime:'image/png',...validatePng(Buffer.from(bytes)),restored:true}),Buffer.from(bytes))}
-  for(const note of data.notes){const metadata=noteMetadataSchema.parse(JSON.parse(note.metadata_json));metadata.anchors=metadata.anchors.map(anchor=>({...anchor,sourceId:sourceMap.get(anchor.sourceId)||anchor.sourceId}));const fingerprint=digest(JSON.stringify(note)),existing=db.prepare("SELECT id FROM notes WHERE project_id=? AND json_extract(metadata_json,'$.backupItemDigest')=?").get(projectId,fingerprint) as {id:string}|undefined;if(existing){noteMap.set(note.id,existing.id);duplicates++;continue}noteMap.set(note.id,createNote(note.title,note.content,{...metadata,backupItemDigest:fingerprint},note.source_id?sourceMap.get(note.source_id)||null:null))}
+  const declared=new Set(data.sources.map(source=>source.id))
+  function assertSource(sourceId:string,page?:number){if(!declared.has(sourceId))throw new InkError(400,'备份引用了未声明的原文。');const mapped=sourceMap.get(sourceId);if(mapped&&page){const source=db.prepare('SELECT type,pages FROM sources WHERE id=? AND project_id=?').get(mapped,projectId) as {type:string;pages:number};if(source.type!=='pdf'||page>source.pages)throw new InkError(400,'备份标注页码或来源类型无效。')}}
+  for(const item of data.annotations)assertSource(item.source_id,item.page_number)
+  for(const doc of data.ink)if(doc.target.kind==='pdf')assertSource(doc.target.sourceId,doc.target.page)
+  const imageDigests=new Map((db.prepare('SELECT id,bytes FROM ink_attachments WHERE project_id=?').all(projectId) as {id:string;bytes:Buffer}[]).map(row=>[digest(row.bytes),row.id]))
+  const referenced=new Set(data.ink.flatMap(doc=>doc.blocks.flatMap(block=>(block.images||[]).map(image=>image.attachmentId))))
+  for(const [name,bytes] of Object.entries(files))if(name.startsWith('images/')&&referenced.has(name.slice(7,-4))){const oldId=name.slice(7,-4),checksum=digest(bytes),existing=imageDigests.get(checksum);if(existing){attachmentMap.set(oldId,existing);continue}const newId=randomUUID();attachmentMap.set(oldId,newId);imageDigests.set(checksum,newId);db.prepare('INSERT INTO ink_attachments(id,project_id,metadata,bytes) VALUES(?,?,?,?)').run(newId,projectId,JSON.stringify({id:newId,mime:'image/png',...validatePng(Buffer.from(bytes)),restored:true}),Buffer.from(bytes))}
+  for(const note of data.notes){if(note.source_id)assertSource(note.source_id);const metadata=noteMetadataSchema.parse(JSON.parse(note.metadata_json));for(const anchor of metadata.anchors)assertSource(anchor.sourceId,anchor.unit==='paragraph'?undefined:anchor.page);metadata.anchors=metadata.anchors.map(anchor=>({...anchor,sourceId:sourceMap.get(anchor.sourceId)||anchor.sourceId}));const sourceId=note.source_id?sourceMap.get(note.source_id)||null:null,existing=(db.prepare('SELECT id,source_id,title,content,metadata_json FROM notes WHERE project_id=?').all(projectId) as typeof data.notes).find(row=>row.title===note.title&&row.content===note.content&&row.source_id===sourceId&&JSON.stringify(noteMetadataSchema.parse(JSON.parse(row.metadata_json)))===JSON.stringify(metadata));if(existing){noteMap.set(note.id,existing.id);duplicates++;continue}noteMap.set(note.id,createNote(note.title,note.content,metadata,sourceId))}
   for(const document of data.ink){const target=document.target;let nextTarget:InkDocument['target'];let blocks:InkBlock[]=structuredClone(document.blocks)
    for(const block of blocks)for(const image of block.images||[])image.attachmentId=attachmentMap.get(image.attachmentId)!
+   const recoveryDigest=digest(JSON.stringify({target,blocks}))
+   function recover(title:string,content:string,metadata:Record<string,unknown>,recoveredBlocks:InkBlock[]){
+    const candidates=db.prepare("SELECT n.id,d.body FROM notes n JOIN ink_documents d ON d.note_id=n.id AND d.project_id=n.project_id WHERE n.project_id=? AND json_extract(n.metadata_json,'$.backupInkDigest')=?").all(projectId,recoveryDigest) as {id:string;body:string}[]
+    if(candidates.some(row=>JSON.stringify(JSON.parse(row.body).blocks)===JSON.stringify(recoveredBlocks))){duplicates++;return null}
+    return createNote(title,content,{...metadata,backupInkDigest:recoveryDigest})
+   }
    if(target.kind==='note'){const noteId=noteMap.get(target.noteId);if(!noteId)throw new InkError(400,'手写引用了缺失的笔记。');nextTarget={kind:'note',noteId}}
-   else {const sourceId=sourceMap.get(target.sourceId);if(sourceId){nextTarget={...target,sourceId};const current=ink.get(projectId,nextTarget);if(current.blocks.length){if(JSON.stringify(current.blocks)===JSON.stringify(blocks)){duplicates++;continue}const noteId=createNote(`恢复的第 ${target.page} 页手写`,'原文已有另一版手写，此处保留恢复副本。',{anchors:[{sourceId,page:target.page,text:'恢复手写',rects:[],contentHash:target.contentHash}],tags:['恢复副本']});nextTarget={kind:'note',noteId};blocks=noteCoordinates(blocks)}}else{const noteId=createNote(`恢复的第 ${target.page} 页手写（原文缺失）`,`原文 ID：${target.sourceId}\n\n内容摘要：${target.contentHash}\n\n请重新导入原文后核对。`,{anchors:[],tags:['原文缺失']});nextTarget={kind:'note',noteId};blocks=noteCoordinates(blocks)}}
-   let current=ink.get(projectId,nextTarget);if(current.blocks.length){if(JSON.stringify(current.blocks)===JSON.stringify(blocks)){duplicates++;continue}const noteId=createNote('恢复的笔记手写副本','已有另一版笔迹，原笔记与笔迹均已保留。',{anchors:[],tags:['恢复副本']});nextTarget={kind:'note',noteId};current=ink.get(projectId,nextTarget)}ink.save(projectId,{...document,revision:current.revision,target:nextTarget,blocks},current.revision);created++
+   else {const sourceId=sourceMap.get(target.sourceId);if(sourceId){nextTarget={...target,sourceId};const current=ink.get(projectId,nextTarget);if(current.blocks.length){if(JSON.stringify(current.blocks)===JSON.stringify(blocks)){duplicates++;continue}const noteId=recover(`恢复的第 ${target.page} 页手写`,'原文已有另一版手写，此处保留恢复副本。',{anchors:[{sourceId,page:target.page,text:'恢复手写',rects:[],contentHash:target.contentHash}],tags:['恢复副本']},noteCoordinates(blocks));if(!noteId)continue;nextTarget={kind:'note',noteId};blocks=noteCoordinates(blocks)}}else{const noteId=recover(`恢复的第 ${target.page} 页手写（原文缺失）`,`原文 ID：${target.sourceId}\n\n内容摘要：${target.contentHash}\n\n请重新导入原文后核对。`,{anchors:[],tags:['原文缺失']},noteCoordinates(blocks));if(!noteId)continue;nextTarget={kind:'note',noteId};blocks=noteCoordinates(blocks)}}
+   let current=ink.get(projectId,nextTarget);if(current.blocks.length){if(JSON.stringify(current.blocks)===JSON.stringify(blocks)){duplicates++;continue}const noteId=recover('恢复的笔记手写副本','已有另一版笔迹，原笔记与笔迹均已保留。',{anchors:[],tags:['恢复副本']},blocks);if(!noteId)continue;nextTarget={kind:'note',noteId};current=ink.get(projectId,nextTarget)}ink.save(projectId,{...document,revision:current.revision,target:nextTarget,blocks},current.revision);created++
   }
-  for(const item of data.annotations){const sourceId=sourceMap.get(item.source_id);if(!sourceId){createNote(`恢复的第 ${item.page_number} 页标注（原文缺失）`,`${item.text}\n\n${item.note||''}\n\n原文 ID：${item.source_id}`,{anchors:[],tags:['原文缺失']});continue}db.prepare('INSERT INTO annotations(id,project_id,source_id,page_number,x1,y1,x2,y2,text,color,note,rects,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),projectId,sourceId,item.page_number,item.x1,item.y1,item.x2,item.y2,item.text,item.color,item.note||'',item.rects,time);created++}
-  createNote('备份恢复记录',`恢复 ${created} 项；重复 ${duplicates} 项；缺少原文 ${missingSources} 份。`,{anchors:[],tags:['恢复记录'],backupDigest:archiveDigest})
+  for(const item of data.annotations){const sourceId=sourceMap.get(item.source_id);if(!sourceId){const title=`恢复的第 ${item.page_number} 页标注（原文缺失）`,content=`${item.text}\n\n${item.note||''}\n\n原文 ID：${item.source_id}`;if(db.prepare('SELECT id FROM notes WHERE project_id=? AND title=? AND content=?').get(projectId,title,content)){duplicates++;continue}createNote(title,content,{anchors:[],tags:['原文缺失']});continue}const existing=db.prepare('SELECT id FROM annotations WHERE project_id=? AND source_id=? AND page_number=? AND x1=? AND y1=? AND x2=? AND y2=? AND text=? AND color=? AND coalesce(note,\'\')=? AND rects IS ?').get(projectId,sourceId,item.page_number,item.x1,item.y1,item.x2,item.y2,item.text,item.color,item.note||'',item.rects);if(existing){duplicates++;continue}db.prepare('INSERT INTO annotations(id,project_id,source_id,page_number,x1,y1,x2,y2,text,color,note,rects,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(randomUUID(),projectId,sourceId,item.page_number,item.x1,item.y1,item.x2,item.y2,item.text,item.color,item.note||'',item.rects,time);created++}
   return {created,duplicates,missingSources}
  })()
 }

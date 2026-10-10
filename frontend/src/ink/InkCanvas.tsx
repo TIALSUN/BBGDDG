@@ -1,4 +1,4 @@
-import {useRef,useState,useMemo} from 'react'
+import {useRef,useState,useMemo,useEffect} from 'react'
 import type {InkBlock,InkPoint,InkStroke} from '../../../src/core/ink-types'
 import {InkInput} from './input'
 import {selectStrokes} from './lasso'
@@ -12,6 +12,7 @@ export default function InkCanvas({block,mode,color,width,onChange,onTextSelect,
  function allowed(event:React.PointerEvent){return mode!=='browse'&&(event.pointerType==='pen'||event.pointerType==='mouse'||allowFingerDrawing)}
  const [selected,setSelected]=useState<string[]>([])
  const strokes=block.strokes
+ useEffect(()=>{setSelected([]);input.current.cancel();setActive([])},[block.id])
  const preview:InkStroke={id:'active',tool:mode==='marker'?'marker':mode==='line'?'line':'pen',color,width,points:active}
  function shape(stroke:InkStroke){const points=stroke.tool==='line'&&stroke.points.length>1?[stroke.points[0],stroke.points.at(-1)!]:stroke.points;return <polyline key={stroke.id} data-ink-stroke={stroke.id==='active'?undefined:stroke.id} points={points.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke={stroke.color} strokeWidth={stroke.width*(stroke.tool==='marker'?5:1)} opacity={stroke.tool==='marker'?.32:1} strokeLinecap="round" strokeLinejoin="round"/>}
  const savedStrokes=useMemo(()=>strokes.map(shape),[strokes])
