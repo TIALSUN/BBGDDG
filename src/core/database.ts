@@ -6,7 +6,7 @@ import type { Database as DatabaseType } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
 
-const CURRENT_SCHEMA = 10
+const CURRENT_SCHEMA = 11
 
 function columnExists(db: DatabaseType, table: string, column: string): boolean {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(row => row.name === column)
@@ -190,6 +190,15 @@ function migrate(db: DatabaseType): void {
       db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (10, datetime('now'))").run()
     })()
   }
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=11').get()) {
+    db.transaction(()=>{
+      db.exec(`CREATE TABLE ink_documents(project_id TEXT NOT NULL,target_key TEXT NOT NULL,source_id TEXT,note_id TEXT,revision INTEGER NOT NULL,body TEXT NOT NULL,
+       PRIMARY KEY(project_id,target_key),FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE,FOREIGN KEY(source_id) REFERENCES sources(id) ON DELETE CASCADE,FOREIGN KEY(note_id) REFERENCES notes(id) ON DELETE CASCADE);
+       CREATE TABLE ink_attachments(id TEXT PRIMARY KEY,project_id TEXT NOT NULL,metadata TEXT NOT NULL,bytes BLOB NOT NULL,FOREIGN KEY(project_id) REFERENCES projects(id) ON DELETE CASCADE);`)
+      db.prepare("INSERT INTO schema_migrations(version,applied_at) VALUES(11,datetime('now'))").run()
+    })()
+  }
+
 }
 
 /** Migrate the original sessions/messages model without requiring network access. */

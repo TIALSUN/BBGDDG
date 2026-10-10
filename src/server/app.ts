@@ -1,3 +1,4 @@
+import {registerInkRoutes} from './ink-routes.js'
 import fs from 'node:fs'
 import path from 'node:path'
 import Fastify from 'fastify'
@@ -174,6 +175,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
 
   registerCollectionRoutes(app, collections)
   registerDocumentRoutes(app, notes)
+  registerInkRoutes(app, db)
   registerAnnotationRoutes(app, db)
   registerResearchRoutes(app, db, config)
 
