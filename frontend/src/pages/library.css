@@ -1,0 +1,84 @@
+/* The library uses quiet graphite surfaces; blue marks the next action. */
+.library-workbench { --bg:#15171c; --panel:#1d2027; --border:#343944; --accent:#788bea; --accent-hover:#6678d5; --text:#edf0f7; --muted:#abb3c3; background:var(--bg); }
+.library-workbench .navigation { width:224px; padding:28px 18px 24px; background:#1a1d23; }
+.library-brand-row { display:flex; align-items:center; gap:8px; }
+.library-brand-row .brand { flex:1; font-size:18px; gap:10px; }
+.library-toggle { display:grid; place-items:center; width:36px; height:36px; flex-shrink:0; border:1px solid transparent; border-radius:6px; background:transparent; color:var(--muted); cursor:pointer; }
+.library-toggle:hover { background:#292e38; color:var(--text); }
+.library-workbench .workspace-nav { margin-top:42px; gap:6px; }
+.library-workbench .workspace-nav a,.library-workbench .workspace-nav button { display:flex; align-items:center; gap:12px; padding:12px; min-height:44px; border-radius:6px; text-decoration:none; font:inherit; font-size:13px; color:var(--muted); }
+.library-workbench .workspace-nav svg { flex-shrink:0; }
+.library-workbench .workspace-nav small { margin-left:auto; font-size:11px; }
+.library-workbench .workspace-nav .active { background:#2b3349; color:#dce3ff; }
+.library-workbench .workspace-nav a:hover { background:#252a34; }
+.library-workbench .nav-bottom { padding:16px 10px 0; border-top:1px solid var(--border); line-height:1.6; }
+.library-workbench .nav-bottom small { margin-top:4px; }
+.library-workbench .library-main { padding:42px clamp(24px,4vw,64px) 28px; }
+.library-content { max-width:1080px; margin:0 auto; }
+.library-workbench .page-heading { margin-bottom:22px; }
+.library-workbench .breadcrumb { margin-bottom:8px; }
+.library-workbench .page-heading h1 { font-size:30px; letter-spacing:0; margin-bottom:8px; }
+.library-workbench .primary { min-height:42px; background:#788bea; color:#101629; border-color:#788bea; }
+.library-workbench .primary:hover { background:#91a1f4; }
+.library-ai { margin-bottom:30px; }
+.library-section-heading { display:flex; align-items:baseline; gap:12px; min-width:0; }
+.library-section-heading h2 { margin:0; font-size:16px; font-weight:600; }
+.library-section-heading>span { font-size:12px; color:var(--muted); }
+.library-resume { margin-bottom:34px; }
+.library-resume-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin-top:16px; }
+.library-resume-card { display:grid; grid-template-columns:1fr auto; gap:10px; background:#212633; border:1px solid #3c465e; border-radius:9px; padding:18px; text-decoration:none; min-width:0; }
+.library-resume-card svg { color:#aebdfb; grid-column:1/-1; }
+.library-resume-card strong { grid-column:1/-1; font-size:15px; font-weight:600; line-height:1.6; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.library-resume-card span,.library-resume-card small { font-size:11px; color:#b8c1d4; }
+.library-resume-card:hover { background:#293145; border-color:#8192d3; }
+.library-list-toolbar { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-bottom:16px; }
+.library-workbench .search-field { flex:0 1 330px; min-width:0; padding:10px 12px; gap:10px; background:#1c1f26; }
+.library-workbench .search-field svg { flex-shrink:0; width:17px; color:var(--muted); }
+.library-workbench .search-field input { min-width:0; font-family:inherit; }
+.library-workbench .search-field button { background:none; border:0; color:var(--muted); cursor:pointer; font-size:20px; padding:0 4px; }
+.library-workbench .project-list { gap:0; border-top:1px solid var(--border); }
+.library-workbench .project-card { overflow:visible; border:0; border-bottom:1px solid var(--border); border-radius:0; background:transparent; }
+.library-workbench .project-card:hover { background:#1d212a; }
+.library-workbench .project-card-link { gap:16px; padding:22px 58px 22px 10px; align-items:center; }
+.library-workbench .project-file-icon { display:grid; place-items:center; width:42px; height:48px; padding:0; flex-shrink:0; border:1px solid #3a4355; border-radius:6px; background:#242b39; color:#b7c6f6; }
+.library-workbench .project-file-icon svg { width:22px; height:22px; }
+.library-workbench .project-card h2 { font-size:16px; margin-bottom:4px; }
+.library-workbench .project-card p { margin-bottom:10px; font-size:12px; }
+.library-workbench .project-meta { font-size:11px; gap:18px; color:var(--muted); }
+.library-workbench .project-menu { position:absolute; right:8px; top:18px; z-index:2; }
+.library-workbench .project-menu[open] { z-index:3; }
+.library-workbench .project-menu summary { list-style:none; cursor:pointer; display:grid; place-items:center; width:36px; height:36px; color:var(--muted); border-radius:6px; }
+.library-workbench .project-menu summary::-webkit-details-marker { display:none; }
+.library-workbench .project-menu summary:hover { background:#303747; }
+.library-workbench .project-menu .project-delete { position:absolute; top:40px; right:0; bottom:auto; white-space:nowrap; padding:12px 18px; background:#292e39; border:1px solid #495266; border-radius:6px; color:#ffb4ba; font-size:12px; box-shadow:0 8px 20px #0005; }
+.library-error { display:flex; gap:16px; align-items:center; justify-content:space-between; padding:14px 16px; margin-bottom:20px; border:1px solid #77434e; border-radius:7px; color:#ffb4ba; overflow-wrap:anywhere; }
+.library-loading { display:flex; align-items:center; justify-content:center; gap:12px; padding:80px 20px; color:var(--muted); }
+.library-empty-action { text-align:center; padding-bottom:32px; }
+.library-workbench .library-footer { border-top:1px solid var(--border); padding-top:20px; margin-top:32px; }
+.library-workbench.navigation-collapsed .navigation { width:76px; padding:28px 12px; }
+.library-workbench.navigation-collapsed .brand,.library-workbench.navigation-collapsed .nav-bottom,.library-workbench.navigation-collapsed .workspace-nav span,.library-workbench.navigation-collapsed .workspace-nav small { display:none; }
+.library-workbench.navigation-collapsed .workspace-nav { display:flex; }
+.library-workbench.navigation-collapsed .library-brand-row { justify-content:center; }
+@media(max-width:900px) { .library-workbench .navigation { width:198px; padding-left:14px; padding-right:14px; } .library-resume-grid { grid-template-columns:1fr; } .library-resume-card { grid-template-columns:24px minmax(0,1fr) auto; align-items:center; padding:14px 16px; } .library-resume-card svg,.library-resume-card strong { grid-column:auto; } .library-resume-card span { display:none; } }
+@media(max-width:760px) {
+ .library-workbench { flex-direction:column; }
+ .library-workbench .navigation,.library-workbench.navigation-collapsed .navigation { width:100%; padding:12px 16px; border-right:0; border-bottom:1px solid var(--border); }
+ .library-workbench .brand { display:flex; }
+ .library-workbench .brand-symbol { width:28px; height:32px; font-size:22px; }
+ .library-workbench .brand small,.library-workbench .nav-bottom { display:none; }
+ .library-workbench .workspace-nav { flex-direction:row; margin-top:12px; gap:4px; }
+ .library-workbench .workspace-nav a,.library-workbench .workspace-nav button { padding:10px; flex:1; justify-content:center; }
+ .library-workbench.navigation-collapsed .workspace-nav { display:none; }
+ .library-workbench .library-main { padding:24px 16px; }
+ .library-workbench .page-heading { align-items:flex-start; gap:12px; }
+ .library-workbench .page-heading h1 { font-size:25px; }
+ .library-workbench .page-heading .primary { padding:10px 12px; }
+ .library-list-toolbar { flex-direction:column; align-items:stretch; gap:14px; }
+ .library-workbench .search-field { flex:auto; max-width:none; }
+ .library-workbench .project-card-link { padding:18px 44px 18px 0; gap:12px; }
+ .library-workbench .project-meta { gap:8px 14px; }
+ .library-workbench .project-meta span:last-child { flex-basis:100%; }
+ .library-workbench .project-menu { right:0; }
+ .library-workbench .library-footer { gap:12px; flex-wrap:wrap; }
+ .library-error { align-items:flex-start; flex-direction:column; }
+}

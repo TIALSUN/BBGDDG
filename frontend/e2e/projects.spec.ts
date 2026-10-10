@@ -45,3 +45,18 @@ test('deleting from the library removes the project and stays removed', async ({
   await page.reload();
   await expect(page.getByRole('heading', { name: project.title, exact: true })).not.toBeVisible();
 });
+
+test('library search can be cleared and fits a narrow viewport', async ({ page }) => {
+  const project = await createProjectViaApi(page, '移动端研究项目');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.getByLabel('搜索项目').fill('没有这个项目的关键词');
+  await expect(page.getByRole('heading', { name: '没有匹配的项目' })).toBeVisible();
+  await page.getByRole('button', { name: '清除搜索', exact: true }).click();
+  await expect(page.getByRole('heading', { name: project.title, exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.getByLabel('切换首页侧栏').click();
+  await expect(page.getByRole('navigation', { name: '文献库导航' })).not.toBeVisible();
+  await page.getByLabel('切换首页侧栏').click();
+  await expect(page.getByRole('navigation', { name: '文献库导航' })).toBeVisible();
+});
