@@ -1,3 +1,4 @@
+import WorkspaceShell from '../components/WorkspaceShell'
 import {useEffect, useState} from 'react'
 import {Link} from 'react-router-dom'
 import {projectsApi, type Project} from '../lib/api'
@@ -34,7 +35,7 @@ export default function LibraryPage() {
  const recent = [...shown].sort((a,b) => b.accessed_at.localeCompare(a.accessed_at))
  const listed = recentOnly ? recent.slice(0,6) : shown
  return <div className={`workbench library-workbench ${collapsed ? 'navigation-collapsed' : ''}`}>
-  <aside className="navigation">
+  <WorkspaceShell navigation={<aside className="navigation">
    <div className="library-brand-row"><Brand/><button className="library-toggle" aria-label="切换首页侧栏" aria-expanded={!collapsed} onClick={() => setCollapsed(v => !v)}><LibraryIcon name="menu"/></button></div>
    <nav className="workspace-nav" aria-label="文献库导航">
     <button className={!recentOnly ? 'active' : ''} aria-pressed={!recentOnly} onClick={() => setRecentOnly(false)}><LibraryIcon name="folder"/><span>所有项目</span><small>{projects.length}</small></button>
@@ -42,7 +43,7 @@ export default function LibraryPage() {
     <Link to="/settings"><LibraryIcon name="settings"/><span>设置</span></Link>
    </nav>
    <div className="nav-bottom"><span className="status-dot"/>本地工作区<small>文献保存在这台电脑</small></div>
-  </aside>
+  </aside>}>
   <main id="main-content" className="library-main"><div className="library-content">
    <header className="page-heading"><div><p className="breadcrumb">文献库</p><h1>我的项目</h1><p>从上次停下的地方，继续阅读与思考。</p></div><button className="primary" onClick={() => setModal(true)}>＋ 新建项目</button></header>
    <div className="library-ai"><AiControlPanel compact minimized/></div>
@@ -64,7 +65,7 @@ export default function LibraryPage() {
     </section>
    </>}
    <footer className="library-footer">BBGDDG <span>为认真阅读留出空间。</span></footer>
-  </div></main>
+  </div></main></WorkspaceShell>
   {modal && <NewProjectModal onClose={() => setModal(false)} onCreate={project => {setProjects(previous => [project,...previous]); setModal(false)}}/>}
  </div>
 }

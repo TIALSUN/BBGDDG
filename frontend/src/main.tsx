@@ -5,6 +5,8 @@ import './index.css'
 import 'katex/dist/katex.min.css'
 import './workspace.css'
 import './ai.css'
+import './styles/tokens.css'
+import './styles/workspace-shell.css'
 
 import ProjectsPage from './pages/LibraryPage'
 import ProjectView from './pages/ProjectWorkspace'

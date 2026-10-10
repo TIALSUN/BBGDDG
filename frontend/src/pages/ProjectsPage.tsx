@@ -1,3 +1,5 @@
+import Dialog from '../components/ui/Dialog'
+import Button from '../components/ui/Button'
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { projectsApi, type Project } from '../lib/api'
@@ -28,69 +30,15 @@ export function NewProjectModal({ onClose, onCreate }: NewProjectModalProps) {
     }
   }
 
-  return (
-    <div style={{
-      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-    }} onClick={onClose}>
-      <div style={{
-        background: 'var(--panel)', border: '1px solid var(--border)', borderRadius: 16,
-        padding: 28, width: 420, boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
-      }} onClick={e => e.stopPropagation()}>
-        <h2 style={{ color: '#fff', fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>创建新项目</h2>
-        <p style={{ color: 'var(--muted)', fontSize: 12, margin: '0 0 20px' }}>
-          项目是你的研究工作区，可以添加 PDF、对话和记录笔记。
-        </p>
-
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>项目名称</div>
-        <input
-          autoFocus
-          value={title}
-          onChange={e => setTitle(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleCreate()}
-          placeholder="例如：大语言模型缩放定律"
-          style={{
-            width: '100%', background: '#0f0f0f', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '10px 14px', color: '#e5e7eb', fontSize: 13,
-            marginBottom: 14, fontFamily: 'inherit', boxSizing: 'border-box',
-            outline: 'none',
-          }}
-        />
-
-        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>描述（可选）</div>
-        <input
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          placeholder="你正在研究什么？"
-          style={{
-            width: '100%', background: '#0f0f0f', border: '1px solid var(--border)',
-            borderRadius: 8, padding: '10px 14px', color: '#e5e7eb', fontSize: 13,
-            marginBottom: 20, fontFamily: 'inherit', boxSizing: 'border-box',
-            outline: 'none',
-          }}
-        />
-
-        {error && <div style={{ color: '#f87171', fontSize: 12, marginBottom: 12 }}>⚠️ {error}</div>}
-
-        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-          <button onClick={onClose} style={{ background: 'none', border: '1px solid var(--border)', color: '#9ca3af', borderRadius: 8, padding: '8px 16px', fontSize: 13, cursor: 'pointer' }}>
-            取消
-          </button>
-          <button
-            onClick={handleCreate}
-            disabled={loading || !title.trim()}
-            style={{
-              background: loading || !title.trim() ? '#3a3a3a' : 'var(--accent)',
-              color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px',
-              fontSize: 13, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {loading ? "正在创建…" : "创建项目"}
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  return <Dialog open title="创建新项目" onClose={()=>{if(!loading)onClose()}}>
+    <p>项目是你的研究工作区，可以添加文献、对话和记录笔记。</p>
+    <form onSubmit={event=>{event.preventDefault();if(!loading)void handleCreate()}}>
+      <label>项目名称<input autoFocus value={title} onChange={e=>setTitle(e.target.value)} placeholder="例如：大语言模型缩放定律" required disabled={loading}/></label>
+      <label>描述（可选）<input value={description} onChange={e=>setDescription(e.target.value)} placeholder="你正在研究什么？" disabled={loading}/></label>
+      {error&&<p role="alert" className="error-message">{error}</p>}
+      <div className="ui-dialog-actions"><Button disabled={loading} onClick={onClose}>取消</Button><Button type="submit" variant="primary" disabled={loading||!title.trim()}>{loading?'正在创建…':'创建项目'}</Button></div>
+    </form>
+  </Dialog>
 }
 
 interface ProjectCardProps {

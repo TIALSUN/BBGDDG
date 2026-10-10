@@ -1,0 +1,3 @@
+export type IconName='folder'|'notes'|'mark'|'chat'|'search'|'menu'|'settings'|'close'|'back'
+const paths:Record<IconName,string>={folder:'M3 7V5h6l2 2h10v13H3V7Z',notes:'M5 3h14v18H5ZM8 8h8M8 12h8M8 16h5',mark:'m6 15-2 6 6-2L21 8l-7-7L3 12Zm6-12 7 7',chat:'M3 4h18v13H9l-6 4V4Z',search:'m16 16 5 5M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0',menu:'M4 6h16M4 12h16M4 18h16',settings:'M12 3v3m0 12v3M3 12h3m12 0h3M6 6l2 2m8 8 2 2M6 18l2-2m8-8 2-2M16 12a4 4 0 1 1-8 0 4 4 0 0 1 8 0',close:'m6 6 12 12M6 18 18 6',back:'m14 5-7 7 7 7'}
+export default function Icon({name}:{name:IconName}){return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>}
