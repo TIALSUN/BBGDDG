@@ -1,13 +1,13 @@
-import { useEffect, useRef, useState } from 'react'
+import Dialog from './ui/Dialog'
+import { useEffect, useState } from 'react'
 import { aiApi, type AiSettings } from '../lib/api'
 import { notifyAiChange } from '../hooks/useAgent'
 const cliOptions = [{ id: 'codex', label: 'Codex' }, { id: 'claude', label: 'Claude Code' }, { id: 'workbuddy', label: '腾讯 WorkBuddy' }, { id: 'deepseek-harness', label: 'DeepSeek Harness' }, { id: 'opencode', label: 'OpenCode' }]
 export default function AiSettingsDialog({ onClose, initialProvider }: { onClose: () => void; initialProvider?: string }) {
-  const dialog = useRef<HTMLDialogElement>(null)
   const [settings, setSettings] = useState<AiSettings | null>(null), [provider, setProvider] = useState(initialProvider || 'api-deepseek')
   const [baseUrl, setBaseUrl] = useState(''), [model, setModel] = useState(''), [key, setKey] = useState(''), [command, setCommand] = useState(''), [args, setArgs] = useState('[]')
   const [message, setMessage] = useState(''), [error, setError] = useState(''), [busy, setBusy] = useState(false), [models, setModels] = useState<string[]>([])
-  useEffect(() => { dialog.current?.showModal(); aiApi.settings().then(setSettings).catch(error => setError(error.message)) }, [])
+  useEffect(() => { aiApi.settings().then(setSettings).catch(error => setError(error.message)) }, [])
   useEffect(() => {
     if (!settings) return
     const api = settings.api.find(item => item.id === provider), cli = settings.cli[provider]
@@ -32,8 +32,8 @@ export default function AiSettingsDialog({ onClose, initialProvider }: { onClose
     } catch (error) { setError(error instanceof Error ? error.message : '操作失败，请重试。') }
     finally { setBusy(false) }
   }
-  return <dialog ref={dialog} className="ai-settings-dialog" onCancel={onClose} onClick={event => { if (event.target === dialog.current) onClose() }}>
-    <div className="ai-dialog-header"><div><h2>AI 服务设置</h2><p>命令行使用工具自己的登录；API 使用你填写的密钥。</p></div><button className="text-button" aria-label="关闭 AI 设置" onClick={onClose}>×</button></div>
+  return <Dialog open title="AI 服务设置" onClose={onClose} className="ai-settings-dialog">
+    <div className="ai-dialog-header"><div><p>命令行使用工具自己的登录；API 使用你填写的密钥。</p></div><button className="text-button" aria-label="关闭 AI 设置" onClick={onClose}>×</button></div>
     <div className="ai-dialog-body"><nav className="ai-settings-nav" aria-label="AI 服务设置分类"><small>命令行工具</small>{cliOptions.map(item => <button disabled={busy} key={item.id} className={provider === item.id ? 'active' : ''} onClick={() => { setProvider(item.id); setError(''); setMessage(''); setModels([]) }}>{item.label}</button>)}<small>API 服务</small>{settings?.api.map(item => <button disabled={busy} key={item.id} className={provider === item.id ? 'active' : ''} onClick={() => { setProvider(item.id); setError(''); setMessage(''); setModels([]) }}>{item.label}{item.hasKey && <span>已配置密钥</span>}</button>)}</nav>
     <form className="ai-settings-form" onSubmit={event => { event.preventDefault(); void action('save') }}>
       {!settings ? <p>正在读取设置…</p> : <>
@@ -44,5 +44,5 @@ export default function AiSettingsDialog({ onClose, initialProvider }: { onClose
       <div className="ai-settings-actions"><button type="submit" className="primary" disabled={busy}>保存设置</button>{isApi && <button type="button" className="secondary" disabled={busy} onClick={() => void action('test')}>保存并测试连接</button>}{provider === 'api-deepseek' && <button type="button" className="secondary" disabled={busy} onClick={() => void action('balance')}>查询余额</button>}</div>{isApi && savedApi?.hasKey && <button type="button" className="danger-text" disabled={busy} onClick={() => { if (confirm('删除这项服务保存的 API 密钥吗？')) void action('clear') }}>删除保存的密钥</button>}
       </>}
     </form></div>
-  </dialog>
+  </Dialog>
 }

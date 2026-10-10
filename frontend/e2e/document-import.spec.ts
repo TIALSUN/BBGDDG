@@ -30,7 +30,7 @@ test('drag mixed files imports valid documents and reports failures without navi
   await expect(page.getByRole('button',{name:/回到原文.*第 2 段/})).toBeVisible()
   await page.reload()
   await page.getByRole('button',{name:'笔记',exact:true}).click()
-  await page.locator('.note-choices button').first().click()
+  await page.getByRole('navigation',{name:'笔记列表'}).getByRole('button').first().click()
   await expect(page.getByRole('button',{name:/回到原文.*第 2 段/})).toBeVisible()
   await page.getByRole('button',{name:/回到原文.*第 2 段/}).click()
   await expect(page.locator('[data-paragraph="2"]')).toHaveClass(/is-target/)

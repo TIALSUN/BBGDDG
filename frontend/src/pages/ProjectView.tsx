@@ -75,6 +75,12 @@ function SourceRow({ source, projectId, drag }: {
 }
 
 export function SourcesTab({ projectId }: { projectId: string }) {
+  const contextKey=`bbgddg:project-view:${projectId}`
+  const [context]=useState<{query?:string;expanded?:string[];scrollTop?:number}>(()=>{try{return JSON.parse(sessionStorage.getItem(contextKey)||'{}')}catch{return {}}})
+  const [sourceQuery,setSourceQuery]=useState(context.query||'')
+  const [sourceError,setSourceError]=useState('')
+  const listRef=useRef<HTMLDivElement>(null)
+  const restoredScroll=useRef(false)
   const navigate = useNavigate()
   const [sources, setSources] = useState<Source[]>([])
   const [collections, setCollections] = useState<Collection[]>([])
@@ -114,12 +120,17 @@ export function SourcesTab({ projectId }: { projectId: string }) {
       setCollections(c)
       if (!initializedExpanded.current && c.length > 0) {
         initializedExpanded.current = true
-        setExpanded(new Set(c.map(collection => collection.id)))
+        setExpanded(new Set(context.expanded?context.expanded.filter(id=>c.some(collection=>collection.id===id)):c.map(collection => collection.id)))
       }
     })
     .finally(() => setLoading(false))
 
-  useEffect(() => { reload() }, [projectId])
+  useEffect(() => { void reload().catch(e=>setSourceError(e.message)) }, [projectId])
+  useEffect(()=>{
+    if(loading)return
+    try{sessionStorage.setItem(contextKey,JSON.stringify({query:sourceQuery,expanded:[...expanded],scrollTop:listRef.current?.scrollTop||context.scrollTop||0}))}catch{}
+    if(!restoredScroll.current&&listRef.current){listRef.current.scrollTop=context.scrollTop||0;restoredScroll.current=true}
+  },[sourceQuery,expanded,loading,contextKey])
   useEffect(() => {
     const onChange = () => reload()
     window.addEventListener('bbgddg:sources-changed', onChange)
@@ -136,12 +147,12 @@ export function SourcesTab({ projectId }: { projectId: string }) {
       ;(childrenOf.get(key) ?? childrenOf.set(key, []).get(key)!).push(c)
     }
     const sourcesIn = new Map<string | null, Source[]>()
-    for (const s of sources) {
+    for (const s of sources.filter(item=>`${item.title||''} ${item.url||''}`.toLowerCase().includes(sourceQuery.trim().toLowerCase()))) {
       const key = s.collection_id && known.has(s.collection_id) ? s.collection_id : null
       ;(sourcesIn.get(key) ?? sourcesIn.set(key, []).get(key)!).push(s)
     }
     return { childrenOf, sourcesIn }
-  }, [collections, sources])
+  }, [collections, sources,sourceQuery])
 
   const toggle = (id: string) => setExpanded(prev => { const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next })
   const allExpanded = collections.length > 0 && collections.every(c => expanded.has(c.id))
@@ -254,15 +265,18 @@ export function SourcesTab({ projectId }: { projectId: string }) {
           <button onClick={() => setShowAdd(true)} style={{ background: 'var(--accent)', color: '#fff', border: 'none', borderRadius: 8, padding: '6px 14px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>＋ 添加文献</button>
         </div>
       </div>
-      <div style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <label className="source-filter"><span>筛选文献</span><input type="search" aria-label="筛选项目文献" placeholder="按标题筛选当前项目…" value={sourceQuery} onChange={e=>{setSourceQuery(e.target.value);try{sessionStorage.setItem(contextKey,JSON.stringify({...context,query:e.target.value,expanded:[...expanded],scrollTop:listRef.current?.scrollTop||0}))}catch{}}}/></label>
+      {sourceError&&<p role="alert" className="error-message">{sourceError}<button className="secondary" onClick={()=>{setSourceError('');void reload().catch(e=>setSourceError(e.message))}}>重新加载</button></p>}
+      <div ref={listRef} onScroll={event=>{try{sessionStorage.setItem(contextKey,JSON.stringify({query:sourceQuery,expanded:[...expanded],scrollTop:event.currentTarget.scrollTop}))}catch{}}} style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 6 }}>
         {loading && <div style={{ color: 'var(--muted)', textAlign: 'center', paddingTop: 40 }}><div className="spinner" style={{ margin: '0 auto 12px' }} /></div>}
-        {!loading && sources.length === 0 && collections.length === 0 && (
+        {!loading && !sourceError && sources.length === 0 && collections.length === 0 && (
           <div style={{ textAlign: 'center', paddingTop: 60, color: 'var(--muted)' }}>
             <div style={{ fontSize: 36, marginBottom: 12 }}>📄</div>
             <div>暂无文献。拖入文件，或点击添加文献。</div>
           </div>
         )}
 
+        {!loading&&sourceQuery.trim()&&sources.length>0&&!unfiled.length&&!Array.from(sourcesIn.values()).some(list=>list.length)&&<p className="empty-state">没有匹配的文献，试试其他关键词。</p>}
         {rootCollections.map(c => renderCollection(c, 0))}
 
         {/* Unfiled sources double as the "move to top level" drop zone. */}

@@ -1,0 +1,26 @@
+import {test,expect} from '@playwright/test'
+import {createProjectViaApi} from './helpers'
+test('project navigation exposes annotations and history on narrow windows',async({page})=>{
+ const project=await createProjectViaApi(page,'一个足够长的中文研究项目标题用于检查导航是否遮挡操作入口')
+ await page.setViewportSize({width:768,height:1024})
+ await page.goto(`/projects/${project.id}`)
+ const nav=page.getByRole('navigation',{name:'项目导航'})
+ await nav.getByRole('button',{name:'标注',exact:true}).click()
+ await expect(page).toHaveURL(/tab=highlights/)
+ await nav.getByRole('button',{name:'对话',exact:true}).click()
+ await expect(page).toHaveURL(/tab=chats/)
+ await nav.getByRole('button',{name:'文献',exact:true}).click()
+ await expect(page.getByRole('button',{name:/添加文献/})).toBeVisible()
+ expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true)
+})
+test('document filter survives switching project tabs',async({page})=>{
+ const project=await createProjectViaApi(page,'列表上下文')
+ await page.goto(`/projects/${project.id}`)
+ const search=page.getByRole('searchbox',{name:'筛选项目文献'})
+ await search.fill('推理')
+ await page.getByRole('navigation',{name:'项目导航'}).getByRole('button',{name:'笔记',exact:true}).click()
+ await page.getByRole('navigation',{name:'项目导航'}).getByRole('button',{name:'文献',exact:true}).click()
+ await expect(search).toHaveValue('推理')
+ await page.reload()
+ await expect(search).toHaveValue('推理')
+})
