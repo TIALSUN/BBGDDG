@@ -1,0 +1,11 @@
+import {useEffect,useState} from 'react'
+import {projectsApi} from '../lib/api'
+import type {Project} from '../lib/api'
+import {hasPendingProjectInk} from '../ink/draft-store'
+export default function BackupPanel(){
+ const [projects,setProjects]=useState<Project[]>([]),[projectId,setProjectId]=useState(''),[busy,setBusy]=useState(false),[message,setMessage]=useState('')
+ useEffect(()=>{projectsApi.list().then(setProjects).catch(error=>setMessage(error.message))},[])
+ async function backup(){setBusy(true);setMessage('');try{if(await hasPendingProjectInk(projectId))throw new Error('存在待同步手写，请先完成保存。');const response=await fetch(`/api/projects/${projectId}/backups`,{method:'POST'});if(!response.ok)throw new Error((await response.json()).detail||'备份失败。');const url=URL.createObjectURL(await response.blob()),link=document.createElement('a');link.href=url;link.download='BBGDDG-笔记与标注.zip';link.click();setTimeout(()=>URL.revokeObjectURL(url),60000);setMessage('备份已生成，请保留原始文献文件。')}catch(error){setMessage((error as Error).message)}finally{setBusy(false)}}
+ async function restore(file:File){if(!confirm('将备份恢复到所选项目？现有内容会保留，不同版本会创建恢复副本。'))return;setBusy(true);setMessage('');try{const form=new FormData();form.append('file',file);const response=await fetch(`/api/projects/${projectId}/backups/restore`,{method:'POST',body:form});const result=await response.json();if(!response.ok)throw new Error(result.detail||'恢复失败。');setMessage(`恢复 ${result.created} 项，重复 ${result.duplicates} 项，缺少原文 ${result.missingSources} 份。`)}catch(error){setMessage((error as Error).message)}finally{setBusy(false)}}
+ return <div><label>备份 / 恢复项目<select aria-label="备份项目" value={projectId} onChange={e=>setProjectId(e.target.value)}><option value="">选择项目</option>{projects.map(project=><option value={project.id} key={project.id}>{project.title}</option>)}</select></label><p>包含笔记、标注、可编辑笔迹和摘录图片；不包含原始文献、账号密钥或完整数据库。</p><button className="secondary" disabled={!projectId||busy} onClick={()=>void backup()}>下载笔记与标注备份</button><label>恢复备份<input aria-label="恢复备份文件" type="file" accept=".zip" disabled={!projectId||busy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';if(file)void restore(file)}}/></label><p aria-live="polite">{busy?'正在处理…':message}</p></div>
+}

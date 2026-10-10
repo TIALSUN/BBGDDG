@@ -24,3 +24,7 @@ test('ink API persists revisions and rejects stale, invalid and foreign targets'
   assert.equal((await app.inject({url:url+`?kind=note&noteId=${note.id}`})).statusCode,404)
  }finally{await app.close();cleanup(config,{close(){}} as never)}
 })
+test('oversized ink requests report 413 and preserve existing data',async()=>{
+ const config=testConfig(),app=await buildTestServer(config)
+ try{const project=(await app.inject({method:'POST',url:'/api/projects',payload:{title:'上限'}})).json();const response=await app.inject({method:'PUT',url:`/api/projects/${project.id}/ink`,payload:{document:'x'.repeat(8*1024*1024+1),expectedRevision:0}});assert.equal(response.statusCode,413)}finally{await app.close();cleanup(config,{close(){}} as never)}
+})

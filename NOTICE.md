@@ -19,3 +19,8 @@ BBGDDG 是 PDFPal 的独立衍生项目。重构和改名不消除原版权。�
 本地改动包括中文深色阅读工作区、PDF 导入与字体资源、高亮注释、笔记、Windows 打包、多 AI 命令行适配、API 设置及用量、本地鉴权与系统密钥保护。BBGDDG 具有独立软件名称、CLI、应用标识和数据目录。个人数据不属于源码。
 
 Node.js、Electron/Chromium、Fastify、React、PDF.js、SQLite 绑定等遵循各自许可。依赖中保留各自许可，桌面包包含第三方通知、Node 许可与 Electron/Chromium 通知。项目 LICENSE 不替代第三方许可。历史截图与测试夹具亦来自上游，仍保留来源。
+
+## PDF 导出依赖
+
+- pdf-lib 1.17.1，MIT（Hopding/pdf-lib contributors）。官方 API：https://pdf-lib.js.org/docs/api/classes/pdfpage 。包内 LICENSE 与锁定版本随依赖保留。
+- 导出在原始 PDF 页面坐标上追加矢量笔迹和高光，不重新排版原文。中文与公式保留原 PDF 的内容；笔记打印复用浏览器字体及既有 KaTeX。

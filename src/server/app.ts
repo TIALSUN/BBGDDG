@@ -1,3 +1,4 @@
+import {registerExportRoutes} from './export-routes.js'
 import {registerInkRoutes} from './ink-routes.js'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -48,6 +49,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   await app.register(multipart, { limits: { fileSize: 25 * 1024 * 1024 } })
 
   app.setErrorHandler((error, _request, reply) => {
+    if(error&&typeof error==='object'&&'code' in error&&error.code==='FST_ERR_CTP_BODY_TOO_LARGE')return reply.code(413).send({detail:'请求内容超过大小上限，请拆分内容后重试。',code:'PAYLOAD_TOO_LARGE'})
     const message = error instanceof Error ? error.message : String(error)
     const known = error instanceof BbgddgError ? error : error instanceof z.ZodError ? new BbgddgError('INVALID_INPUT', '设置格式不正确，请检查必填字段。', 2) : new BbgddgError('INTERNAL_ERROR', message)
     const status = known.code === 'PDF_FETCH_TIMEOUT' ? 504 : known.exitCode === 3 ? 404 : known.exitCode === 2 || known.exitCode === 4 ? 400 : 500
@@ -176,6 +178,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   registerCollectionRoutes(app, collections)
   registerDocumentRoutes(app, notes)
   registerInkRoutes(app, db)
+  registerExportRoutes(app, db, config)
   registerAnnotationRoutes(app, db)
   registerResearchRoutes(app, db, config)
 

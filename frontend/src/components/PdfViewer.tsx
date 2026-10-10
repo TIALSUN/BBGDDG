@@ -1,9 +1,15 @@
+import ExportDialog from './ExportDialog'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
 import type { Annotation } from '../lib/api'
 import {ColorPicker} from './WorkspaceUI'
+import PdfInkLayer from '../ink/PdfInkLayer'
+import type {PdfInkContext} from '../ink/PdfInkLayer'
+import InkToolbar,{defaultInkSettings} from '../ink/InkToolbar'
+import type {InkSettings} from '../ink/InkToolbar'
+import type {Matrix} from '../ink/geometry'
 
 // Bundle the worker from the same pdfjs-dist version used by react-pdf.
 // package.json pins pdfjs-dist to react-pdf's exact version (no "^"): pdfjs
@@ -15,6 +21,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.m
 type PageRect = { x1: number; y1: number; x2: number; y2: number }
 
 interface Props {
+  inkContext?:PdfInkContext
   text?: string
   markdown?: boolean
   url: string
@@ -108,10 +115,11 @@ const PDF_OPTIONS = {
 }
 
 export default function PdfViewer({
-  url, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
+  url, inkContext, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
   annotations, onHighlightCreate, onNoteCreate, onAnchoredNote, onHighlightClick, onHighlightDelete,
 }: Props) {
   const requestedPage = normalizePage(pageRequest?.page??initialPage)
+  const [inkSettings,setInkSettings]=useState(defaultInkSettings)
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(requestedPage)
   const [restored, setRestored] = useState(false)
@@ -346,7 +354,9 @@ export default function PdfViewer({
         )}
       </div>
 
+      {inkContext&&<div className="pdf-export-action"><ExportDialog projectId={inkContext.projectId} sourceId={inkContext.sourceId}/></div>}
       {/* PDF scroll area */}
+      {inkContext&&<InkToolbar sourceTools settings={inkSettings} onChange={setInkSettings}/>}
       <div ref={scrollRef} data-testid="pdf-scroll-area" style={{ flex: 1, overflow: 'auto', padding: '16px 0' }}>
         <Document
           key={url}
@@ -364,6 +374,8 @@ export default function PdfViewer({
               <LazyPdfPage
                 key={i}
                 pageNumber={pageNum}
+                inkContext={inkContext}
+                inkSettings={inkSettings}
                 citation={pageRequest?.page===pageNum&&(pageRequest.excerpt||pageRequest.rects?.length)?{key:pageRequest.key,excerpt:pageRequest.excerpt||'',rects:pageRequest.rects}:undefined}
                 pageWidth={pageWidth}
                 pageScale={pageScale}
@@ -414,6 +426,7 @@ export default function PdfViewer({
             提问
           </button>
           {bubble.coords && onNoteCreate && <button className="secondary" onClick={()=>handleHighlight(true)}>添加注释</button>}
+          {inkContext&&bubble.anchors.length>0&&<button className="secondary" onClick={()=>{window.dispatchEvent(new CustomEvent('bbgddg:ink-underline',{detail:{sourceId:inkContext.sourceId,anchors:bubble.anchors}}));setBubble(null);window.getSelection()?.removeAllRanges()}}>下划线</button>}
         </div>
       )}
     </div>
@@ -421,6 +434,8 @@ export default function PdfViewer({
 }
 
 interface LazyPdfPageProps {
+  inkContext?:PdfInkContext
+  inkSettings:InkSettings
   pageNumber: number
   citation?: {key:number;excerpt:string;rects?:PageRect[]}
   pageWidth?: number
@@ -437,8 +452,9 @@ interface LazyPdfPageProps {
 // lightweight placeholder and only mount pages as they approach the viewport.
 const PAGE_ASPECT_RATIO = 1.53
 
-function LazyPdfPage({ pageNumber, citation, pageWidth, pageScale, annotations, onHighlightClick, onPageRendered }: LazyPdfPageProps) {
+function LazyPdfPage({ pageNumber, inkContext, inkSettings, citation, pageWidth, pageScale, annotations, onHighlightClick, onPageRendered }: LazyPdfPageProps) {
   const pageRef = useRef<HTMLDivElement>(null)
+  const [inkViewport,setInkViewport]=useState<{width:number;height:number;transform:Matrix}|null>(null)
   const [shouldRender, setShouldRender] = useState(pageNumber === 1)
   const [aspectRatio,setAspectRatio]=useState(PAGE_ASPECT_RATIO)
   const [renderReady, setRenderReady] = useState(false)
@@ -504,7 +520,7 @@ function LazyPdfPage({ pageNumber, citation, pageWidth, pageScale, annotations, 
             pageNumber={pageNumber}
             width={pageWidth}
             scale={pageScale}
-            onLoadSuccess={page=>{const viewport=page.getViewport({scale:1});setAspectRatio(viewport.height/viewport.width)}}
+            onLoadSuccess={page=>{const viewport=page.getViewport({scale:1});setAspectRatio(viewport.height/viewport.width);setInkViewport({width:viewport.width,height:viewport.height,transform:viewport.transform as Matrix})}}
             onRenderSuccess={handleRenderSuccess}
             onRenderTextLayerSuccess={handleTextRenderSuccess}
             renderTextLayer={true}
@@ -516,6 +532,7 @@ function LazyPdfPage({ pageNumber, citation, pageWidth, pageScale, annotations, 
           <div style={{ width: placeholderWidth, height: placeholderHeight, background: 'white' }} aria-label={`第 ${pageNumber} 页`} />
         )}
         {citationRects.map((r,i)=><div key={'citation-'+i} data-citation-highlight="true" aria-hidden="true" style={{position:'absolute',left:r.x1*100+'%',top:r.y1*100+'%',width:(r.x2-r.x1)*100+'%',height:(r.y2-r.y1)*100+'%',background:'rgba(96,165,250,.36)',outline:'1px solid rgba(59,130,246,.5)',pointerEvents:'none',zIndex:3,mixBlendMode:'multiply'}}/>)}
+        {inkContext&&inkViewport&&<PdfInkLayer context={inkContext} renderReady={renderReady} page={pageNumber} viewport={inkViewport} settings={inkSettings}/>}
         {annotations.map(ann =>
           // rects gives one box per selected line; annotations from before
           // that field existed only have the x1..y2 union.

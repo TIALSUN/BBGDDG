@@ -1,4 +1,5 @@
 import { noteMetadataSchema, readNote, type NoteMetadata } from './note-links.js'
+import {inkAttachmentIds,pruneInkAttachments} from './ink.js'
 import { randomUUID } from 'node:crypto'
 import type { Database } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
@@ -79,7 +80,7 @@ export class NoteService {
 
   delete(projectSelector: string, selector: string): Note {
     const note = this.resolve(projectSelector, selector)
-    this.db.prepare('DELETE FROM notes WHERE id=?').run(note.id)
+    this.db.transaction(()=>{const ids=inkAttachmentIds(this.db,note.project_id,note.id);this.db.prepare('DELETE FROM notes WHERE id=?').run(note.id);pruneInkAttachments(this.db,note.project_id,ids)})()
     return note
   }
 }

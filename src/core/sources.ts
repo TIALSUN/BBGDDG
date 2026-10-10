@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
+import {inkAttachmentIds,pruneInkAttachments} from './ink.js'
 import path from 'node:path'
 import type { Database } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
@@ -160,7 +161,7 @@ export class SourceService {
 
   remove(projectSelector: string, sourceSelector: string): Source {
     const source = this.resolve(projectSelector, sourceSelector)
-    this.db.prepare('DELETE FROM sources WHERE id=?').run(source.id)
+    this.db.transaction(()=>{const ids=inkAttachmentIds(this.db,source.project_id,source.id);this.db.prepare('DELETE FROM sources WHERE id=?').run(source.id);pruneInkAttachments(this.db,source.project_id,ids)})()
     if (source.local_path) fs.rmSync(path.join(this.config.filesDir, path.basename(source.local_path)), { force: true })
     return source
   }

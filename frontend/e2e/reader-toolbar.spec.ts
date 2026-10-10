@@ -95,7 +95,8 @@ test.describe('collapsible reader toolbar', () => {
     await page.getByRole('button', { name: '收起顶部', exact: true }).click();
     await expect(page.getByRole('button', { name: '展开顶部', exact: true })).toBeEnabled();
     expect((await page.locator('.reader-topbar').boundingBox())!.height).toBeLessThan(expandedHeight - 30);
-    await expect(page.getByLabel('选择 AI 服务')).toBeVisible();
+    await page.locator('.reader-topbar').getByRole('button',{name:/^AI：/}).click();
+    await expect(page.locator('.reader-topbar').getByLabel('选择 AI 服务')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath('reader-collapsed-narrow.png') });
   });

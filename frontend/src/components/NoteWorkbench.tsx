@@ -1,4 +1,8 @@
 import NoteList from './notes/NoteList'
+import NoteInkBlocks from '../ink/NoteInkBlocks'
+import {hasPendingInk} from '../ink/draft-store'
+import {printNote} from '../ink/print-note'
+import type {InkDocument} from '../../../src/core/ink-types'
 import NoteEditorBody from './notes/NoteEditorBody'
 import {useEffect,useRef,useState} from 'react'
 import {annotationsApi,notesApi,sourcesApi,type Source,type Note,type NoteAnchor,type Annotation} from '../lib/api'
@@ -36,7 +40,8 @@ export default function NoteWorkbench({projectId,sourceId,initialNoteId,onAnchor
     <details className="reference-editor"><summary>添加原文引用</summary><label>文献<select aria-label="引用文献" value={referenceSource} onChange={e=>setReferenceSource(e.target.value)}><option value="">选择文献</option>{referenceSources.map(s=><option value={s.id} key={s.id}>{s.title}</option>)}</select></label><label>{referenceSources.find(s=>s.id===referenceSource)?.type==="text"?"段落编号":"PDF 页序号"}<input aria-label="引用页码" type="number" min="1" value={referencePage} onChange={e=>setReferencePage(e.target.value)}/></label><label>原文片段<input aria-label="引用原文" value={referenceText} onChange={e=>setReferenceText(e.target.value)}/></label><button className="secondary" disabled={!referenceSource||!Number.isInteger(Number(referencePage))||Number(referencePage)<1} onClick={()=>change({...draft,anchors:[...draft.anchors,{sourceId:referenceSource,unit:referenceSources.find(s=>s.id===referenceSource)?.type==="text"?"paragraph":"page",page:Number(referencePage),text:referenceText,rects:[]}]})}>添加引用</button></details>
     <div className="note-links">{draft.anchors.map((anchor,i)=><button className="reference-jump" key={i} onClick={()=>onAnchor?.(anchor)}>回到原文 · {anchor.unit==='paragraph'?'第':'PDF 第'} {anchor.page} {anchor.unit==='paragraph'?'段':'页'}：{anchor.text.slice(0,60)}</button>)}</div>
     <button className="text-button" onClick={()=>setPreview(v=>!v)}>{preview?'编辑正文':'预览正文'}</button>
-    <NoteEditorBody draft={draft} onChange={change} preview={preview}/>
+    <button className="secondary" disabled={!draft.id||dirty} onClick={async()=>{try{if(await hasPendingInk(projectId,draft.id!))throw new Error("手写尚未保存，请稍后重试。");const note=await notesApi.get(projectId,draft.id!);const response=await fetch(`/api/projects/${projectId}/ink?kind=note&noteId=${draft.id}`);if(!response.ok)throw new Error("无法读取手写，请重试。");const ink:InkDocument=await response.json();const ids=[...new Set(ink.blocks.flatMap(b=>(b.images||[]).map(i=>i.attachmentId)))];await printNote(note,ink,ids.map(id=>({id,url:`/api/projects/${projectId}/ink/attachments/${id}`,width:0,height:0})))}catch(error){setError((error as Error).message)}}}>打印笔记 / 存储为 PDF</button><NoteEditorBody draft={draft} onChange={change} preview={preview}/>
+    {draft.id?<NoteInkBlocks key={draft.id} projectId={projectId} noteId={draft.id}/>:<p className="muted">先保存笔记，即可添加手写块。</p>}
     {draft.origin&&<details className="note-origin"><summary>AI 摘录来源（需自行核实）</summary><p>{draft.origin.content}</p><small>{draft.origin.createdAt}</small></details>}
   </section>
 }

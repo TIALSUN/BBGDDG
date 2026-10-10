@@ -1,3 +1,4 @@
+import InkReview from '../ink/InkReview'
 import useReaderLayout from '../hooks/useReaderLayout'
 import ReaderTools from '../components/ReaderTools'
 import {useEffect,useRef,useState} from 'react'
@@ -11,20 +12,27 @@ import AiControlPanel from '../components/AiControlPanel'
 import NoteWorkbench,{type NoteDraft} from '../components/NoteWorkbench'
 import {sourcesApi,annotationsApi,uiPreferencesApi,type ChatReference,type Source,type Annotation,type NoteAnchor} from '../lib/api'
 type Panel='annotations'|'chat'|'notes'|'related'
+type ReturnContext={route:string;page:number;panel:Panel;focused:boolean;review:boolean;scrollTop:number}
 export default function ReaderPage({documentSourceId,initialNoteId}:{documentSourceId?:string;initialNoteId?:string}={}){
  const {projectId,sourceId:routeSourceId}=useParams(),sourceId=documentSourceId||routeSourceId,[source,setSource]=useState<Source|null>(null),[annotations,setAnnotations]=useState<Annotation[]>([]),[selected,setSelected]=useState<string|null>(null),[quote,setQuote]=useState(''),[notice,setNotice]=useState(''),[pageRequest,setPageRequest]=useState<{page:number;key:number;excerpt?:string;rects?:NoteAnchor['rects']}|undefined>(),[loading,setLoading]=useState(true)
  const navigate=useNavigate(),location=useLocation()
+ const [deletedAnnotation,setDeletedAnnotation]=useState<Annotation|null>(null)
+ const readingPage=useRef(1)
  const [review,setReview]=useState(()=>!!documentSourceId||new URLSearchParams(location.search).get('mode')==='notes')
  const [draftRequest,setDraftRequest]=useState<{key:number;draft:NoteDraft}>()
  const [selectionAnchor,setSelectionAnchor]=useState<NoteAnchor[]>([])
  const {activeTool:panel,setTool:setPanel,panelOpen,setPanelOpen,panelWidth,setPanelWidth}=useReaderLayout()
  const focused=!panelOpen
- const setFocused=(value:boolean|((previous:boolean)=>boolean))=>setPanelOpen(previous=>!(typeof value==='function'?value(!previous):value))
+ const setFocused=(value:boolean|((previous:boolean)=>boolean))=>{
+  const next=typeof value==='function'?value(focused):value
+  if(!next&&window.innerWidth<900){panelTrigger.current=document.activeElement instanceof HTMLElement?document.activeElement:null;requestAnimationFrame(()=>panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus())}
+  setPanelOpen(!next)
+ }
  const panelTrigger=useRef<HTMLElement|null>(null)
  const panelRef=useRef<HTMLElement>(null)
  const [viewportHeight,setViewportHeight]=useState(window.visualViewport?.height||window.innerHeight)
  useEffect(()=>{const viewport=window.visualViewport;const resize=()=>setViewportHeight(viewport?.height||window.innerHeight);viewport?.addEventListener('resize',resize);return()=>viewport?.removeEventListener('resize',resize)},[])
- function openTool(next:Panel){panelTrigger.current=document.activeElement instanceof HTMLElement?document.activeElement:null;changePanel(next);setFocused(false)}
+ function openTool(next:Panel){if(!changePanel(next))return;panelTrigger.current=document.activeElement instanceof HTMLElement?document.activeElement:null;setFocused(review&&window.innerWidth<900);requestAnimationFrame(()=>panelRef.current?.querySelector<HTMLElement>('button:not([disabled])')?.focus())}
  function closeTool(){setFocused(true);requestAnimationFrame(()=>panelTrigger.current?.focus())}
 
  const noteId=initialNoteId||new URLSearchParams(location.search).get('note')||undefined
@@ -48,19 +56,23 @@ export default function ReaderPage({documentSourceId,initialNoteId}:{documentSou
   catch{setNotice('顶部布局已切换，但未能保存；下次启动可能需要重新选择。')}
   finally{setSavingLayout(false)}
  }
- function changePanel(next:Panel){if(noteDirty && !confirm('注释尚未保存。放弃修改并切换面板吗？'))return;setPanel(next)}
- useEffect(()=>{if(!projectId||!sourceId)return;let cancelled=false;setLoading(true);Promise.all([sourcesApi.get(projectId,sourceId),annotationsApi.list(projectId,sourceId)]).then(([s,a])=>{if(!cancelled){setSource(s);setAnnotations(a)}}).catch(e=>setNotice(e.message)).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true}},[projectId,sourceId])
+ function changePanel(next:Panel){if(noteDirty && !confirm('注释尚未保存。放弃修改并切换面板吗？'))return false;setPanel(next);return true}
+ useEffect(()=>{if(!projectId||!sourceId)return;let cancelled=false;setLoading(true);setSource(null);setDeletedAnnotation(null);Promise.all([sourcesApi.get(projectId,sourceId),annotationsApi.list(projectId,sourceId)]).then(([s,a])=>{if(!cancelled){setSource(s);setAnnotations(a);readingPage.current=s.last_page_read||1}}).catch(e=>setNotice(e.message)).finally(()=>{if(!cancelled)setLoading(false)});return()=>{cancelled=true}},[projectId,sourceId])
  useEffect(()=>()=>{if(progress.current)clearTimeout(progress.current)},[])
  useEffect(()=>{const citation=(location.state as {citation?:ChatReference}|null)?.citation;if(citation&&citation.sourceId===sourceId){setPageRequest({page:citation.page,key:Date.now(),excerpt:citation.excerpt});setNotice('已跳转到引用页；匹配到的原文会临时标亮。')}},[location.key,sourceId])
  const Viewer=source?.type==='text'?TextDocumentViewer:PdfViewer
+ const returnContext=(location.state as {returnContext?:ReturnContext}|null)?.returnContext
+ function originContext():ReturnContext{return {route:location.pathname+location.search,page:readingPage.current,panel,focused,review,scrollTop:panelRef.current?.querySelector('.reading-panel-body')?.scrollTop||0}}
+ useEffect(()=>{const context=(location.state as {restoreContext?:ReturnContext}|null)?.restoreContext;if(!context||loading)return;setPageRequest({page:context.page,key:Date.now()});setPanel(context.panel);setReview(context.review);setPanelOpen(!context.focused);const timer=setTimeout(()=>{const body=panelRef.current?.querySelector('.reading-panel-body');if(body)body.scrollTop=context.scrollTop},100);return()=>clearTimeout(timer)},[location.key,loading])
  if(!projectId||!sourceId)return null
  async function create(data:Omit<Annotation,'id'|'project_id'|'source_id'|'created_at'>,withNote=false){try{const annotation=await annotationsApi.create(projectId!,sourceId!,data);setAnnotations(previous=>[...previous,annotation]);setSelected(annotation.id);if(withNote){setFocused(false);setPanel('notes');setDraftRequest({key:Date.now(),draft:{title:data.text.slice(0,40)||'原文笔记',content:'',tags:[],anchors:[{sourceId:sourceId!,page:data.page_number,text:data.text,rects:data.rects||[{x1:data.x1,y1:data.y1,x2:data.x2,y2:data.y2}]}]}})}setNotice(withNote?'原文已关联，请编辑笔记并保存。':'高亮已保存。')}catch(e){setNotice(e instanceof Error?e.message:'标注保存失败，请重试。')}}
  async function update(id:string,data:{note?:string;color?:string}){const changed=await annotationsApi.update(projectId!,sourceId!,id,data);setAnnotations(previous=>previous.map(a=>a.id===id?changed:a));setNotice('标注已保存。')}
- async function remove(id:string){await annotationsApi.delete(projectId!,sourceId!,id);setAnnotations(previous=>previous.filter(a=>a.id!==id));setSelected(null);setNotice('标注已删除。')}
+ async function remove(id:string){const snapshot=annotations.find(a=>a.id===id);await annotationsApi.delete(projectId!,sourceId!,id);setDeletedAnnotation(snapshot||null);setAnnotations(previous=>previous.filter(a=>a.id!==id));setSelected(null);setNotice('标注已删除，可撤销。')}
+ async function undoAnnotationDelete(){if(!deletedAnnotation)return;const {id:_id,project_id:_project,source_id:_source,created_at:_created,...data}=deletedAnnotation;try{const restored=await annotationsApi.create(projectId!,sourceId!,data);setAnnotations(previous=>[...previous,restored]);setSelected(restored.id);setDeletedAnnotation(null);setNotice('标注已恢复。')}catch(error){setNotice((error as Error).message)}}
  function select(annotation:Annotation){setSelected(annotation.id);setPanel('annotations');setFocused(false);setPageRequest({page:annotation.page_number,key:Date.now()})}
- function openReference(reference:ChatReference){if(reference.sourceId===sourceId){setPageRequest({page:reference.page,key:Date.now(),excerpt:reference.excerpt});setNotice('已跳转到引用页；匹配到的原文会临时标亮。')}else navigate('/projects/'+projectId+'/sources/'+reference.sourceId,{state:{citation:reference}})}
- function saveProgress(page:number){if(progress.current)clearTimeout(progress.current);progress.current=setTimeout(()=>{sourcesApi.updateLastPageRead(projectId!,sourceId!,page).catch(()=>{})},500)}
- function openAnchor(anchor:NoteAnchor){if(anchor.sourceId!==sourceId){navigate(`/projects/${projectId}/sources/${anchor.sourceId}`,{state:{citation:{sourceId:anchor.sourceId,page:anchor.page,excerpt:anchor.text}}});return}const changed=anchor.contentHash&&source?.content_hash&&anchor.contentHash!==source.content_hash;setPageRequest({page:anchor.page,key:Date.now(),excerpt:anchor.text,rects:changed?undefined:anchor.rects});setNotice(changed?'文件内容已改变，文字匹配位置需核实。':'已定位笔记对应的原文。');if(review)setFocused(false)}
+ function openReference(reference:ChatReference){if(reference.sourceId===sourceId){setPageRequest({page:reference.page,key:Date.now(),excerpt:reference.excerpt});setNotice('已跳转到引用页；匹配到的原文会临时标亮。')}else navigate('/projects/'+projectId+'/sources/'+reference.sourceId,{state:{citation:reference,returnContext:originContext()}})}
+ function saveProgress(page:number){readingPage.current=page;if(progress.current)clearTimeout(progress.current);progress.current=setTimeout(()=>{sourcesApi.updateLastPageRead(projectId!,sourceId!,page).catch(()=>{})},500)}
+ function openAnchor(anchor:NoteAnchor){if(anchor.sourceId!==sourceId){navigate(`/projects/${projectId}/sources/${anchor.sourceId}`,{state:{citation:{sourceId:anchor.sourceId,page:anchor.page,excerpt:anchor.text},returnContext:originContext()}});return}const changed=anchor.contentHash&&source?.content_hash&&anchor.contentHash!==source.content_hash;setPageRequest({page:anchor.page,key:Date.now(),excerpt:anchor.text,rects:changed?undefined:anchor.rects});setNotice(changed?'文件内容已改变，文字匹配位置需核实。':'已定位笔记对应的原文。');if(review)setFocused(false)}
  return <div className={`reading-workspace ${review?'is-review':''}`} style={{'--viewport-height':viewportHeight+'px'} as React.CSSProperties}>
   <div className={`reader-topbar ${topCollapsed?'is-collapsed':''}`}>
    <header className="reading-header">
@@ -78,19 +90,28 @@ export default function ReaderPage({documentSourceId,initialNoteId}:{documentSou
      <button className={focused?'primary':'secondary'} aria-pressed={focused} onClick={()=>setFocused(value=>!value)}>{focused?'显示阅读面板':'收起面板'}</button>
     </div>
    </header>
-   <AiControlPanel compact minimized/>
+   <AiControlPanel compact minimized/>{returnContext&&<button className="secondary" onClick={()=>navigate(returnContext.route,{state:{restoreContext:returnContext}})}>返回引用位置</button>}
   </div>
-  {(notice||!topCollapsed)&&<div className={`reading-notice ${topCollapsed?'is-floating':''}`} aria-live="polite">{notice||'选中文字以高亮、添加注释或向 AI 提问。'}{notice&&<button aria-label="关闭提示" onClick={()=>setNotice('')}>×</button>}</div>}
+  {(notice||!topCollapsed)&&<div className={`reading-notice ${topCollapsed?'is-floating':''}`} aria-live="polite">{notice||'选中文字以高亮、添加注释或向 AI 提问。'}{deletedAnnotation&&<button onClick={()=>void undoAnnotationDelete()}>撤销删除标注</button>}{notice&&<button aria-label="关闭提示" onClick={()=>setNotice('')}>×</button>}</div>}
   <main id="main-content" style={{'--panel-width':panelWidth+'px'} as React.CSSProperties} className={`reading-layout study-layout ${focused?'is-focused':''} ${review?'review-layout':''}`}>
-   <section className="paper-stage" aria-label="PDF 阅读区">{loading?<div className="empty-state">正在加载 PDF…</div>:source?<Viewer text={source.pdf_text||''} markdown={source.media_type!=='text/plain'} key={source.id} url={`/api/projects/${projectId}/sources/${sourceId}/file`} pages={source.pages} initialPage={source.last_page_read} pageRequest={pageRequest} annotations={annotations} onPageChange={saveProgress} onTextSelected={(text,anchors)=>{setQuote(text);setSelectionAnchor((anchors||[]).map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash})));setFocused(false);setPanel('chat')}} onHighlightCreate={data=>create(data)} onNoteCreate={data=>create(data,true)} onAnchoredNote={anchors=>{setDraftRequest({key:Date.now(),draft:{title:anchors[0].text.slice(0,40)||'原文笔记',content:'',tags:[],anchors:anchors.map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash}))}});setPanel('notes');setFocused(false)}} onHighlightClick={select} onHighlightDelete={remove}/>:<p className="error-message">无法打开 PDF，请返回项目重试。</p>}</section>
+   <section className="paper-stage" aria-label="PDF 阅读区">{loading?<div className="empty-state">正在加载 PDF…</div>:source?<Viewer inkContext={source.type!=='text'&&source.content_hash?{projectId:projectId!,sourceId:sourceId!,contentHash:source.content_hash}:undefined} text={source.pdf_text||''} markdown={source.media_type!=='text/plain'} key={source.id} url={`/api/projects/${projectId}/sources/${sourceId}/file`} pages={source.pages} initialPage={source.last_page_read} pageRequest={pageRequest} annotations={annotations} onPageChange={saveProgress} onTextSelected={(text,anchors)=>{setQuote(text);setSelectionAnchor((anchors||[]).map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash})));setFocused(false);setPanel('chat')}} onHighlightCreate={data=>create(data)} onNoteCreate={data=>create(data,true)} onAnchoredNote={anchors=>{setDraftRequest({key:Date.now(),draft:{title:anchors[0].text.slice(0,40)||'原文笔记',content:'',tags:[],anchors:anchors.map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash}))}});setPanel('notes');setFocused(false)}} onHighlightClick={select} onHighlightDelete={remove}/>:<p className="error-message">无法打开 PDF，请返回项目重试。</p>}</section>
    <div className="reader-divider" role="separator" aria-label="调整阅读面板宽度" aria-orientation="vertical" aria-valuemin={320} aria-valuemax={720} aria-valuenow={Math.round(panelWidth)} tabIndex={0} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setPanelWidth(Math.max(320,Math.min(720,panelWidth+(e.key==='ArrowLeft'?20:-20))))}}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId)}} onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))setPanelWidth(Math.max(320,Math.min(720,window.innerWidth-e.clientX)))}}/>
-   <aside ref={panelRef} className="reading-panel study-panel" hidden={focused&&!review}>
+   <aside ref={panelRef} onKeyDown={event=>{
+     if(window.innerWidth>=900||review)return
+     if(event.key==='Escape'){event.preventDefault();closeTool()}
+     if(event.key==='Tab'){
+      const controls=Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),a[href],summary')).filter(el=>el.getClientRects().length)
+      const first=controls[0],last=controls[controls.length-1]
+      if(first&&event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}
+      else if(last&&!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+     }
+    }} className="reading-panel study-panel" hidden={focused&&!review}>
     <nav className="reading-panel-tabs" aria-label="阅读工具">{([['chat','AI 问答'],['notes','笔记']] as [Panel,string][]).map(([id,label])=><button key={id} className={panel===id?'active':''} aria-pressed={panel===id} onClick={()=>changePanel(id)}>{label}</button>)}<details className="panel-more"><summary>更多</summary><button onClick={()=>changePanel('annotations')}>标注管理</button><button onClick={()=>changePanel('related')}>相关论文</button></details><button aria-label="收起面板" onClick={closeTool}>›</button></nav>
     <label className="panel-width">面板宽度<input aria-label="面板宽度" type="range" min="320" max="720" value={panelWidth} onChange={e=>setPanelWidth(Number(e.target.value))}/></label>
     <div className="reading-panel-body">
      <div className="retained-panel" hidden={panel!=='chat'}><ChatPanel key={sourceId} pdfText={source?.pdf_text||''} pdfUrl={source?.url||''} disabled={!source} selectedText={quote} selectedAnchors={selectionAnchor} onSelectedTextUsed={()=>setQuote('')} projectId={projectId} sourceId={sourceId} onReference={openReference} onExtract={(content,anchors)=>{setDraftRequest({key:Date.now(),draft:{title:'阅读问答笔记',content,tags:[],anchors,origin:{kind:'ai',content,createdAt:new Date().toISOString()}}});setPanel('notes');setFocused(false)}}/></div>
      <div className="retained-panel" hidden={panel!=='notes'}><NoteWorkbench key={sourceId} projectId={projectId} sourceId={sourceId} initialNoteId={noteId} draftRequest={draftRequest} onAnchor={openAnchor}/></div>
-     <div className="retained-panel" hidden={panel!=='annotations'}><AnnotationPanel annotations={annotations} selectedId={selected} onSelect={select} onUpdate={update} onDelete={remove} onDirtyChange={setNoteDirty}/></div>
+     <div className="retained-panel" hidden={panel!=='annotations'}><InkReview projectId={projectId} sourceId={sourceId} contentHash={source?.content_hash} onJump={page=>{setPageRequest({page,key:Date.now()});if(review)setFocused(false)}}/><AnnotationPanel annotations={annotations} selectedId={selected} onSelect={select} onUpdate={update} onDelete={remove} onDirtyChange={setNoteDirty}/></div>
      {source&&<div className="retained-panel" hidden={panel!=='related'}><RelatedPanel projectId={projectId} sourceId={sourceId} sourceUrl={source.url||''}/></div>}
     </div>
    </aside>

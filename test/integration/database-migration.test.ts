@@ -98,3 +98,14 @@ test('adds page progress to a version 5 database without changing existing sourc
     assert.deepEqual(source, { title: 'Existing Book', pages: 370, last_page_read: 1 })
   } finally { cleanup(config, db) }
 })
+import fs from 'node:fs'
+import path from 'node:path'
+test('schema 10 upgrade backs up existing notes before adding ink tables',()=>{
+ const config=testConfig(),db=openDatabase(config),time=new Date().toISOString()
+ db.prepare('INSERT INTO projects(id,title,created_at,accessed_at) VALUES(?,?,?,?)').run('p','保留项目',time,time)
+ db.prepare('INSERT INTO notes(id,project_id,title,content,created_at,updated_at) VALUES(?,?,?,?,?,?)').run('n','p','保留笔记','旧正文',time,time)
+ db.exec('DROP TABLE ink_documents; DROP TABLE ink_attachments; DELETE FROM schema_migrations WHERE version>10')
+ db.close()
+ const before=fs.readdirSync(config.backupsDir).length,upgraded=openDatabase(config)
+ try{assert.equal((upgraded.prepare('SELECT content FROM notes WHERE id=?').get('n') as {content:string}).content,'旧正文');assert.equal(fs.readdirSync(config.backupsDir).length,before+1);const backups=fs.readdirSync(config.backupsDir).sort();const old=new Database(path.join(config.backupsDir,backups.at(-1)!));try{assert.equal((old.prepare('SELECT content FROM notes WHERE id=?').get('n') as {content:string}).content,'旧正文');assert.equal((old.prepare('SELECT MAX(version) n FROM schema_migrations').get() as {n:number}).n,10)}finally{old.close()}}finally{cleanup(config,upgraded)}
+})
