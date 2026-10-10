@@ -1,3 +1,4 @@
+import {normalizeMath} from '../lib/math'
 import {useEffect,useRef,useState} from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -38,7 +39,7 @@ export default function NoteWorkbench({projectId,sourceId,initialNoteId,onAnchor
     <details className="reference-editor"><summary>添加原文引用</summary><label>文献<select aria-label="引用文献" value={referenceSource} onChange={e=>setReferenceSource(e.target.value)}><option value="">选择文献</option>{referenceSources.map(s=><option value={s.id} key={s.id}>{s.title}</option>)}</select></label><label>{referenceSources.find(s=>s.id===referenceSource)?.type==="text"?"段落编号":"PDF 页序号"}<input aria-label="引用页码" type="number" min="1" value={referencePage} onChange={e=>setReferencePage(e.target.value)}/></label><label>原文片段<input aria-label="引用原文" value={referenceText} onChange={e=>setReferenceText(e.target.value)}/></label><button className="secondary" disabled={!referenceSource||!Number.isInteger(Number(referencePage))||Number(referencePage)<1} onClick={()=>change({...draft,anchors:[...draft.anchors,{sourceId:referenceSource,unit:referenceSources.find(s=>s.id===referenceSource)?.type==="text"?"paragraph":"page",page:Number(referencePage),text:referenceText,rects:[]}]})}>添加引用</button></details>
     <div className="note-links">{draft.anchors.map((anchor,i)=><button className="reference-jump" key={i} onClick={()=>onAnchor?.(anchor)}>回到原文 · {anchor.unit==='paragraph'?'第':'PDF 第'} {anchor.page} {anchor.unit==='paragraph'?'段':'页'}：{anchor.text.slice(0,60)}</button>)}</div>
     <button className="text-button" onClick={()=>setPreview(v=>!v)}>{preview?'编辑正文':'预览正文'}</button>
-    {preview?<div className="prose note-body"><ReactMarkdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]}>{draft.content||'尚无正文，点击“编辑正文”记录自己的理解。'}</ReactMarkdown></div>:<textarea className="note-body" aria-label="笔记正文" value={draft.content} onChange={e=>change({...draft,content:e.target.value})} placeholder="记录自己的理解、疑问或整理 AI 解释，支持 Markdown 与公式。"/>}
+    {preview?<div className="prose note-body"><ReactMarkdown remarkPlugins={[remarkGfm,remarkMath]} rehypePlugins={[rehypeKatex]}>{normalizeMath(draft.content||'尚无正文，点击“编辑正文”记录自己的理解。')}</ReactMarkdown></div>:<textarea className="note-body" aria-label="笔记正文" value={draft.content} onChange={e=>change({...draft,content:e.target.value})} placeholder="记录自己的理解、疑问或整理 AI 解释，支持 Markdown 与公式。"/>}
     {draft.origin&&<details className="note-origin"><summary>AI 摘录来源（需自行核实）</summary><p>{draft.origin.content}</p><small>{draft.origin.createdAt}</small></details>}
   </section>
 }

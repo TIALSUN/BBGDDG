@@ -45,7 +45,8 @@ export class AgentService {
     return (await this.invokeDetailed(prompt, agent, model, documents)).answer
   }
 
-  async invokeDetailed(prompt: string, agent?: AgentName, model?: string, documents: AgentDocument[] = []): Promise<AgentAnswer> {
+  async invokeDetailed(prompt: string, agent?: AgentName, model?: string, documents: AgentDocument[] = [], signal?: AbortSignal): Promise<AgentAnswer> {
+    signal?.throwIfAborted()
     agent = agent || this.settings.defaultProvider() || this.config.agent
     if (![...cliIds, ...apiIds].includes(agent)) throw new BbgddgError('UNKNOWN_PROVIDER', '不支持这个 AI 服务。', 2)
     const isApi = apiIds.includes(agent as ApiId)
@@ -75,7 +76,8 @@ export class AgentService {
     }
     }
     if (isApi) {
-      result = await this.api.invoke(agent as ApiId, prompt, selectedModel)
+      result = await this.api.invoke(agent as ApiId, prompt, selectedModel, signal)
+      signal?.throwIfAborted()
       this.settings.record(result.usage)
       return result
     }
@@ -107,7 +109,7 @@ export class AgentService {
       args.push('--agent', 'bbgddg', prompt)
     }
       result = await new Promise<AgentAnswer>((resolve, reject) => {
-        const child = spawn(launch.binary, [...launch.prefix, ...args], { cwd, env: agentEnvironment(), windowsHide: true, stdio: ['pipe', 'pipe', 'pipe'] })
+        const child = spawn(launch.binary, [...launch.prefix, ...args], { cwd, env: agentEnvironment(), windowsHide: true, signal, stdio: ['pipe', 'pipe', 'pipe'] })
         const stdout: Buffer[] = []
         const fail = (error: unknown) => { clearTimeout(timer); reject(error) }
         child.stdout.on('data', data => stdout.push(Buffer.from(data)))

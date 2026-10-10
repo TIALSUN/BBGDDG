@@ -80,6 +80,9 @@ export function SourcesTab({ projectId }: { projectId: string }) {
   const [collections, setCollections] = useState<Collection[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [collectionForm,setCollectionForm]=useState<{parentId:string|null;name:string}|null>(null)
+  const [collectionError,setCollectionError]=useState('')
+  const [creatingCollection,setCreatingCollection]=useState(false)
   const [fileDrag, setFileDrag] = useState(false)
   const [importStatus, setImportStatus] = useState('')
   const [importFailures, setImportFailures] = useState<string[]>([])
@@ -155,13 +158,14 @@ export function SourcesTab({ projectId }: { projectId: string }) {
     } catch (e: any) { alert(e.message || "无法移动项目") }
   }
 
-  const addCollection = async (parentId: string | null) => {
-    const name = prompt("新文献集名称", "新文献集")
-    if (!name?.trim()) return
-    const created = await collectionsApi.create(projectId, name.trim(), parentId)
-    if (parentId) setExpanded(prev => new Set(prev).add(parentId))
-    await reload()
-    setEditingId(created.id); setEditingName(created.name)
+  const addCollection = (parentId:string|null) => {setCollectionError('');setCollectionForm({parentId,name:'新文献集'})}
+  const createCollection=async()=>{
+    if(!collectionForm?.name.trim()||creatingCollection)return
+    setCreatingCollection(true);setCollectionError('')
+    try{const created=await collectionsApi.create(projectId,collectionForm.name.trim(),collectionForm.parentId)
+      if(collectionForm.parentId)setExpanded(prev=>new Set(prev).add(collectionForm.parentId!))
+      await reload();setCollectionForm(null);setEditingId(created.id);setEditingName(created.name)
+    }catch(error){setCollectionError(error instanceof Error?error.message:'创建失败，请重试。')}finally{setCreatingCollection(false)}
   }
 
   const commitRename = async (id: string) => {
@@ -284,6 +288,7 @@ export function SourcesTab({ projectId }: { projectId: string }) {
           <span>📄</span><span>拖入 PDF、MD、TXT、DOCX，或点击选择文件…</span>
         </div>
       </div>
+      {collectionForm&&<div className="modal-overlay"><form className="modal" role="dialog" aria-modal="true" aria-label="新建文献集" onSubmit={e=>{e.preventDefault();void createCollection()}}><h2>新建文献集</h2><label>文献集名称<input autoFocus aria-label="文献集名称" value={collectionForm.name} disabled={creatingCollection} onChange={e=>setCollectionForm({...collectionForm,name:e.target.value})}/></label>{collectionError&&<p role="alert">{collectionError}</p>}<button type="button" className="secondary" disabled={creatingCollection} onClick={()=>setCollectionForm(null)}>取消</button><button type="submit" className="primary" disabled={creatingCollection||!collectionForm.name.trim()}>{creatingCollection?'创建中…':'创建文献集'}</button></form></div>}
       {showAdd && <SearchPaperModal projectId={projectId} onClose={() => { setShowAdd(false); reload() }} onAdded={s => { setShowAdd(false); setSources(prev => [s, ...prev]) }} />}
     </div>
   )

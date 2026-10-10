@@ -138,7 +138,14 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
   app.post<{ Body: { message: string; project_id: string; source_id?: string; active_source_ids?: string[]; collection_id?: string; agent?: AgentName; model?: string } }>('/api/chat', async (request, reply) => {
     const body=z.object({message:z.string().trim().min(1).max(30000),project_id:z.string().min(1),source_id:z.string().nullable().optional(),active_source_ids:z.array(z.string()).max(100).optional(),collection_id:z.string().optional(),agent:z.string().optional(),model:z.string().optional(),context_scope:z.enum(['selection','document','project']).optional(),selected_text:z.string().max(20000).optional()}).strict().parse(request.body)
     const selectors = body.source_id ? [body.source_id] : body.active_source_ids
-    const result = await chat.ask(request.body.project_id, request.body.message, { sourceSelectors: selectors, collectionSelector: body.collection_id, agent: body.agent as AgentName, model: body.model, contextScope:body.context_scope,selectedText:body.selected_text,conversationSourceId:body.source_id??(body.active_source_ids?null:undefined) })
+    const controller=new AbortController()
+    const disconnected=()=>{if(!reply.raw.writableEnded)controller.abort()}
+    reply.raw.on('close',disconnected)
+    let result
+    try{result=await chat.ask(request.body.project_id, request.body.message, {signal:controller.signal, sourceSelectors:selectors,collectionSelector:body.collection_id,agent:body.agent as AgentName,model:body.model,contextScope:body.context_scope,selectedText:body.selected_text,conversationSourceId:body.source_id??(body.active_source_ids?null:undefined)})}
+    catch(error){if(controller.signal.aborted)return;throw error}
+    finally{reply.raw.off('close',disconnected)}
+    if(controller.signal.aborted)return
     reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
     reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, references:result.references,contextScope:result.contextScope,memoryWarning:result.memoryWarning,usage: result.usage })}\n\n`)
     reply.raw.end('data: [DONE]\n\n')

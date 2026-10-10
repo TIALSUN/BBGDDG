@@ -12,6 +12,36 @@ async function fixture(page:Page){
  return {project,source,second};
 }
 const answer=(references:any[]=[])=>'data: '+JSON.stringify({text:'根据原文 [1]。未知引用 [99]。代码 `[1]`。',references,contextScope:'document'})+'\n\ndata: [DONE]\n\n';
+test('collection creation works without browser prompt and preserves errors',async({page})=>{
+ const project=await createProjectViaApi(page,'文献集创建回归');await page.goto(`/projects/${project.id}`);
+ await page.evaluate(()=>{window.prompt=()=>{throw new Error('Desktop prompt unsupported')}});
+ await page.getByRole('button',{name:'📁 新建文献集',exact:true}).click();
+ const dialog=page.getByRole('dialog',{name:'新建文献集'});await expect(dialog).toBeVisible();
+ await dialog.getByLabel('文献集名称').fill('回归测试文献集');await dialog.getByRole('button',{name:'创建文献集',exact:true}).click();await expect(dialog).toBeHidden();
+ const collections=await(await page.request.get(`/api/projects/${project.id}/collections`)).json();expect(collections.some((c:any)=>c.name==='回归测试文献集')).toBe(true);
+ await page.route(`**/api/projects/${project.id}/collections`,route=>route.request().method()==='POST'?route.fulfill({status:500,json:{detail:'合成创建失败'}}):route.continue());
+ await page.getByRole('button',{name:'📁 新建文献集',exact:true}).click();await dialog.getByLabel('文献集名称').fill('保留名称');await dialog.getByRole('button',{name:'创建文献集',exact:true}).click();await expect(dialog.getByRole('alert')).toContainText('合成创建失败');await expect(dialog.getByLabel('文献集名称')).toHaveValue('保留名称');await dialog.getByRole('button',{name:'取消',exact:true}).click();
+});
+test('saved note preview renders math without changing stored content',async({page})=>{
+ const {project,source}=await fixture(page),content=String.raw`行内 \(E=mc^2\)\n\[a=\frac{1}{2}\]`;
+ const note=await(await page.request.post(`/api/projects/${project.id}/notes`,{data:{title:'公式笔记',content,source_id:source.id}})).json();
+ await page.goto(`/projects/${project.id}/sources/${source.id}?mode=notes&note=${note.id}`);await expect(page.locator('.note-body .katex')).toHaveCount(2);
+ const saved=await(await page.request.get(`/api/projects/${project.id}/notes/${note.id}`)).json();expect(saved.content).toBe(content);
+});
+test('common model math delimiters render while code stays literal',async({page})=>{
+ await fixture(page);await page.route('**/api/chat',route=>route.fulfill({contentType:'text/event-stream',body:'data: '+JSON.stringify({text:String.raw`行内 \(x^2\) 和块公式 \[AEC=\frac{1}{N}\sum_i E_i\]。代码 \`literal\``,contextScope:'document'})+'\n\ndata: [DONE]\n\n'}));
+ await page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）').fill('解释公式');await page.getByRole('button',{name:'发送问题'}).click();await expect(page.locator('.chat-answer .katex')).toHaveCount(2);await expect(page.locator('.chat-answer .katex-display')).toHaveCount(1);
+});
+test('pending answer survives SPA document switches and can be stopped',async({page})=>{
+ const {project,source,second}=await fixture(page);let release!:()=>void;const pending=new Promise<void>(resolve=>{release=resolve});
+ await page.route('**/api/chat',async route=>{await pending;await route.fulfill({contentType:'text/event-stream',body:answer()}).catch(()=>{})});
+ const input=page.getByPlaceholder('输入问题…（Enter 发送，Shift+Enter 换行）');await input.fill('切换时继续思考');await input.press('Enter');await expect(page.getByRole('button',{name:'停止生成'})).toBeVisible();
+ const navigate=async(id:string)=>{await page.evaluate(url=>{history.pushState({},'',url);window.dispatchEvent(new PopStateEvent('popstate'))},`/projects/${project.id}/sources/${id}`);await page.getByRole('button',{name:'AI 问答',exact:true}).click()};
+ await navigate(second.id);await expect(page.getByRole('button',{name:'停止生成'})).toBeHidden();await navigate(source.id);await expect(page.getByText('切换时继续思考',{exact:true})).toBeVisible();await expect(page.getByRole('button',{name:'停止生成'})).toBeVisible();
+ release();await expect(page.locator('.chat-answer')).toHaveCount(1);
+ let finish!:()=>void;const waiting=new Promise<void>(resolve=>{finish=resolve});await page.route('**/api/chat',async route=>{await waiting;await route.fulfill({contentType:'text/event-stream',body:answer()}).catch(()=>{})});
+ await input.fill('停止这个请求');await input.press('Enter');await page.getByRole('button',{name:'停止生成'}).click();await expect(input).toBeEnabled();await expect(input).toHaveValue('停止这个请求');await expect(page.getByText(/已停止生成/)).toBeVisible();finish();
+});
 test('editable memory survives reload; clear and pause are explicit',async({page})=>{
  const {project,source}=await fixture(page);
  await page.getByRole('button',{name:/对话记忆/}).click();

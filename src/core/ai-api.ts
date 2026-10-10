@@ -13,10 +13,10 @@ export class ApiAgent {
       : { authorization: `Bearer ${secret}`, 'content-type': 'application/json' }
     return { profile, secret, base, headers }
   }
-  private async request(url: string, headers: Record<string, string>, body?: unknown, timeout = 120000): Promise<any> {
+  private async request(url: string, headers: Record<string, string>, body?: unknown, timeout = 120000, signal?: AbortSignal): Promise<any> {
     let response: Response
-    try { response = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, signal: AbortSignal.timeout(timeout), redirect: 'error' }) }
-    catch { throw new BbgddgError('API_CONNECTION_FAILED', '接口连接失败或超时，请检查地址和网络。', 2) }
+    try { response = await fetch(url, { method: body ? 'POST' : 'GET', headers, body: body ? JSON.stringify(body) : undefined, signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout), redirect: 'error' }) }
+    catch { signal?.throwIfAborted(); throw new BbgddgError('API_CONNECTION_FAILED', '接口连接失败或超时，请检查地址和网络。', 2) }
     if (!response.ok) {
       // Never relay remote error bodies: some providers echo request headers or keys.
       const hint = response.status === 401 || response.status === 403 ? '密钥无效或没有权限' : response.status === 429 ? '请求受限或额度不足' : response.status === 404 ? '接口地址或模型不存在' : response.status === 400 ? '模型不支持该请求或参数不匹配' : '服务暂时不可用'
@@ -24,13 +24,13 @@ export class ApiAgent {
     }
     try { return await response.json() } catch { throw new BbgddgError('INVALID_API_RESPONSE', '接口没有返回有效的 JSON 数据。', 2) }
   }
-  async invoke(id: ApiId, prompt: string, model?: string): Promise<AgentAnswer> {
+  async invoke(id: ApiId, prompt: string, model?: string, signal?: AbortSignal): Promise<AgentAnswer> {
     const { profile, base, headers } = this.prepared(id)
     const requestedModel = model || profile.model
     const isClaude = profile.protocol === 'anthropic'
     const response = await this.request(base + (isClaude ? '/messages' : '/chat/completions'), headers,
       isClaude ? { model: requestedModel, max_tokens: 4096, messages: [{ role: 'user', content: prompt }] }
-      : { model: requestedModel, stream: false, messages: [{ role: 'user', content: prompt }] })
+      : { model: requestedModel, stream: false, messages: [{ role: 'user', content: prompt }] }, 120000, signal)
     const answer = isClaude ? response.content?.filter((part: any) => part.type === 'text').map((part: any) => part.text).join('\n') : response.choices?.[0]?.message?.content
     if (typeof answer !== 'string' || !answer.trim()) throw new BbgddgError('EMPTY_API_RESPONSE', '模型没有返回可显示的回答。', 2)
     const raw = response.usage || {}

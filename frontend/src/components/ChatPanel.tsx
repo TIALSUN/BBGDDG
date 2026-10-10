@@ -1,8 +1,9 @@
+import {useChatTask,updateChat,chatRevision,sendChat,stopChat} from '../lib/chatTasks'
 import { useState, useRef, useEffect, type KeyboardEvent } from 'react'
 import ChatMemoryPanel from './ChatMemoryPanel'
 import ChatAnswer from './ChatAnswer'
 import { chatApi } from '../lib/api'
-import { useAgent, notifyAiChange } from '../hooks/useAgent'
+import { useAgent } from '../hooks/useAgent'
 import AiUsageView from './AiUsageView'
 import type { ChatReference, ContextScope, AiUsage, NoteAnchor } from '../lib/api'
 import AgentSelect from './AgentSelect'
@@ -38,12 +39,13 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   // loaded by the server-side ChatService from source IDs.
   void pdfText
   void pdfUrl
-  const [messages, setMessages] = useState<Message[]>(initialMessages?.map(m => ({ role: m.role as 'user'|'assistant', content: m.content })) ?? [])
+  const taskKey=JSON.stringify([projectId,sourceId||sessionId||'project'])
+  const {messages,loading,error,revision}=useChatTask(taskKey)
+  const setMessages=(messages:Message[])=>updateChat(taskKey,{messages})
+  const setError=(error:string)=>updateChat(taskKey,{error})
   const draftKey=`bbgddg:question:${projectId}:${sourceId||'project'}`
   const [input, setInput] = useState(()=>sessionStorage.getItem(draftKey)||'')
   useEffect(()=>{sessionStorage.setItem(draftKey,input)},[input,draftKey])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
   const [scope,setScope]=useState<ContextScope>('document')
   const [selection,setSelection]=useState('')
   const [memoryRefresh,setMemoryRefresh]=useState(0)
@@ -54,12 +56,15 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   // Load chat history when source changes
   useEffect(() => {
     let cancelled=false
-    setMessages([]);setSelection('');setScope('document')
+    setSelection('');setScope('document')
+    const initialRevision=chatRevision(taskKey)
+    if(loading||messages.length)return
+    if(initialMessages?.length)setMessages(initialMessages.map(m=>({...m,role:m.role as 'user'|'assistant'})))
     if (projectId && sourceId) {
       fetch(`/api/projects/${projectId}/sources/${sourceId}/chat`, { credentials: 'include' })
         .then(r => r.ok ? r.json() : { messages: [] })
         .then(data => {
-          if (!cancelled&&data.messages?.length > 0) {
+          if (!cancelled&&chatRevision(taskKey)===initialRevision&&data.messages?.length > 0) {
             setMessages(data.messages.map((m: { role: string; content: string; usage?: AiUsage;references?:ChatReference[];contextScope?:ContextScope }) => ({
               role: m.role as 'user' | 'assistant',
               content: m.content, usage: m.usage,references:m.references,contextScope:m.contextScope
@@ -74,6 +79,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+  useEffect(()=>{if(!loading)setMemoryRefresh(v=>v+1)},[loading,revision])
 
   // When selectedText changes, pre-fill the textarea with a quote prompt
   useEffect(() => {
@@ -99,71 +105,8 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
     onSelectedTextUsed?.()
 
     const newHistory: Message[] = [...messages, { role: 'user', content: userMsg }]
-    setMessages(newHistory)
-    setLoading(true)
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        credentials:'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: userMsg,
-          agent,
-          project_id: projectId ?? null,
-          source_id: sourceId ?? null,context_scope:scope,selected_text:scope==='selection'?selection:undefined,
-        }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json()
-        throw new Error(data.detail || "对话请求失败")
-      }
-
-      const reader = res.body!.getReader()
-      const decoder = new TextDecoder()
-      let buffer = ''
-      let assistantText = ''
-      let assistantUsage: AiUsage | undefined
-      let references:ChatReference[]=[]
-      let answerScope:ContextScope|undefined
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() || ''
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const payload = line.slice(6)
-            if (payload === '[DONE]') break
-            try {
-              const parsed = JSON.parse(payload)
-              if (parsed.error) throw new Error(parsed.error)
-              if (parsed.text) assistantText = parsed.text
-              if (parsed.usage) assistantUsage = parsed.usage
-              if(parsed.references)references=parsed.references
-              if(parsed.contextScope)answerScope=parsed.contextScope
-              if(parsed.memoryWarning)setError(parsed.memoryWarning)
-            } catch (e: any) {
-              // ignore JSON parse errors for [DONE] and other non-JSON payloads
-            }
-          }
-        }
-      }
-
-      setMessages([...newHistory, { role: 'assistant', content: assistantText, usage: assistantUsage,references,contextScope:answerScope,anchors:scope==='selection'?selectedAnchors||[]:[] }])
-      setMemoryRefresh(v=>v+1)
-      notifyAiChange()
-    } catch (e: any) {
-      setError(e.message || "出现错误")
-      setMessages(messages);setInput(userMsg)
-    } finally {
-      setLoading(false)
-      textareaRef.current?.focus()
-    }
+    const success=await sendChat(taskKey, {message:userMsg,agent,project_id:projectId??null,source_id:sourceId??null,context_scope:scope,selected_text:scope==='selection'?selection:undefined},newHistory,scope==='selection'?selectedAnchors||[]:[])
+    if(!success){sessionStorage.setItem(draftKey,userMsg);setInput(userMsg)}
   }
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -265,6 +208,7 @@ export default function ChatPanel({ pdfText, pdfUrl, disabled, selectedText, onS
           </div>
         ))}
 
+        {loading && <button className="secondary" onClick={()=>stopChat(taskKey)}>停止生成</button>}
         {loading && (
           <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
             <div style={{

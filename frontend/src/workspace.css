@@ -38,3 +38,5 @@ a{color:inherit}button,a,input,select,textarea{touch-action:manipulation}button{
 .text-paragraph { max-width:850px;margin:16px auto;padding:18px 24px;border:1px solid var(--border);border-radius:8px;overflow-wrap:anywhere;background:var(--panel); }
 .text-paragraph small { color:var(--muted); }.text-paragraph.is-target { outline:2px solid var(--accent); }
 .text-paragraph pre { overflow:auto; }.text-paragraph table { display:block;overflow:auto; }
+
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:#0009;display:flex;align-items:center;justify-content:center;padding:20px}.modal-overlay .modal{background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:12px;padding:24px;width:min(420px,100%)}.modal-overlay label{display:grid;gap:8px;margin:16px 0}.modal-overlay input{background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:10px}.modal-overlay button{margin-right:8px}
