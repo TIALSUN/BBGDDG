@@ -8,4 +8,6 @@ This distribution includes Electron/Chromium, Node.js and npm dependencies.
 Electron and Chromium license notices are included beside BBGDDG.exe.
 Node.js license is included in resources/backend/NODE-LICENSE.txt.
 Backend dependency notices are included in their respective npm packages.
+Annotated PDF export uses pdf-lib 1.17.1 (MIT); its license is included in
+resources/backend/node_modules/pdf-lib/LICENSE.md.
 No personal PDFs, databases, credentials or AI agent executables are bundled.

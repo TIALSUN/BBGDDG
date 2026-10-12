@@ -2,11 +2,17 @@
 
 中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-当前版本：**1.2.3**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
+当前版本：**1.3.0**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
-## 1.2 阅读与笔记工作流
+## 1.3 工作区与手写标注
 
-[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [修正版验证记录](docs/VALIDATION-1.2.1.md)
+[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [桌面版验证记录](docs/VALIDATION-1.3.0.md)
+
+- 统一文献、笔记、标注和 AI 工作区，保留搜索与阅读上下文。
+- PDF 和笔记支持钢笔、荧光笔、划线、整笔擦除、套索与撤销重做；鼠标也可操作。
+- 手写自动保存，提供本机待同步草稿、冲突副本和恢复入口；笔记文字仍需明确保存。
+- 导出带标注的 PDF 副本，打印混合笔记，备份与恢复可编辑笔迹和摘录图片。
+- 本次为 Windows 桌面发布；独立离线 iPad 应用及跨设备同步仍未实现。
 
 1.2.1 修复旧发行包缺少 PDF 原生依赖导致的启动失败。便携使用请选择 `Portable.zip`，解压完整目录后运行 `BBGDDG.exe`。便携 EXE 自解压启动器未通过本轮验证，因此不提供该格式。安装版已完成实际安装及安装后运行验证。1.2.0 下载包存在启动缺陷，请使用最新版本。
 
