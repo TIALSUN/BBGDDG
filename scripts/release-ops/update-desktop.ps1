@@ -1,10 +1,10 @@
-param([ValidateSet('Stage','Activate','Verify')][string]$Mode)
+param([ValidateSet('Stage','Activate','Verify')][string]$Mode,[ValidatePattern('^\d+\.\d+\.\d+$')][string]$Version='1.3.1')
 $ErrorActionPreference='Stop'
 $taskRepo=(Resolve-Path -LiteralPath (Split-Path (Split-Path $PSScriptRoot -Parent) -Parent)).Path
 $taskOuter=Split-Path (Split-Path $taskRepo -Parent) -Parent
 $taskOutputs=(Resolve-Path -LiteralPath (Join-Path $taskOuter 'outputs')).Path
 $taskCurrent=Join-Path $taskOutputs 'current'
-$taskStaged=Join-Path $taskOutputs 'current-1.3.0-staged'
+$taskStaged=Join-Path $taskOutputs "current-$Version-staged"
 $taskRelease=Join-Path $taskRepo 'release'
 $taskSnapshot=Join-Path $taskRelease 'personal-data-before.json'
 $taskSeal=Join-Path $taskRelease 'staged-desktop-manifest.json'
@@ -15,7 +15,7 @@ function Assert-PersonalData { $taskBefore=Get-Content -LiteralPath $taskSnapsho
 Assert-OutputPath $taskCurrent;Assert-OutputPath $taskStaged
 if($Mode -eq 'Stage'){
  $taskSource=(Resolve-Path -LiteralPath (Join-Path $taskRelease 'win-unpacked')).Path
- if((Get-Item -LiteralPath (Join-Path $taskSource 'BBGDDG.exe')).VersionInfo.ProductVersion -notlike '1.3.0*'){throw 'Unexpected source version'}
+ if((Get-Item -LiteralPath (Join-Path $taskSource 'BBGDDG.exe')).VersionInfo.ProductVersion -ne $Version){throw 'Unexpected source version'}
  if(-not(Test-Path -LiteralPath $taskStaged)){
   New-Item -ItemType Directory -Path $taskStaged | Out-Null
   Get-ChildItem -LiteralPath $taskSource -Force | Copy-Item -Destination $taskStaged -Recurse -Force
@@ -24,20 +24,20 @@ if($Mode -eq 'Stage'){
  $taskExpected=ConvertTo-Json -InputObject $taskManifest -Depth 4 -Compress
  $taskActual=ConvertTo-Json -InputObject @(Get-Manifest $taskStaged) -Depth 4 -Compress
  if($taskExpected -cne $taskActual){throw 'Staged application differs from tested package'}
- [pscustomobject]@{Version='1.3.0';Source=$taskSource;Manifest=$taskManifest}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath $taskSeal
+ [pscustomobject]@{Version=$Version;Source=$taskSource;Manifest=$taskManifest}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath $taskSeal
  [pscustomobject]@{Stage='verified';Files=$taskManifest.Count;Seal=$taskSeal}|ConvertTo-Json -Compress
 }elseif($Mode -eq 'Activate'){
  $taskRunning=@(Get-Process BBGDDG -ErrorAction SilentlyContinue)
  if($taskRunning.Count){throw 'Current BBGDDG is running; close normally before activation'}
  if(-not(Test-Path -LiteralPath $taskSeal) -or -not(Test-Path -LiteralPath $taskStaged)){throw 'Missing staged verification record or application'}
  $taskVerified=Get-Content -LiteralPath $taskSeal -Raw|ConvertFrom-Json
- if($taskVerified.Version -ne '1.3.0' -or -not $taskVerified.Source -or -not $taskVerified.Manifest.Count){throw 'Invalid staged verification record'}
+ if($taskVerified.Version -ne $Version -or -not $taskVerified.Source -or -not $taskVerified.Manifest.Count){throw 'Invalid staged verification record'}
  $taskExpected=ConvertTo-Json -InputObject @($taskVerified.Manifest) -Depth 4 -Compress
  $taskActual=ConvertTo-Json -InputObject @(Get-Manifest $taskStaged) -Depth 4 -Compress
  if($taskExpected -cne $taskActual){throw 'Staged application differs from successful verification'}
- if((Get-Item -LiteralPath (Join-Path $taskStaged 'BBGDDG.exe')).VersionInfo.ProductVersion -notlike '1.3.0*'){throw 'Invalid staged verification version'}
+ if((Get-Item -LiteralPath (Join-Path $taskStaged 'BBGDDG.exe')).VersionInfo.ProductVersion -ne $Version){throw 'Invalid staged verification version'}
  ConvertTo-Json -InputObject @(Get-PersonalManifest) -Depth 4 -Compress | Set-Content -LiteralPath $taskSnapshot
- $taskBackup=Join-Path $taskOutputs ('previous-before-1.3.0-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
+ $taskBackup=Join-Path $taskOutputs ("previous-before-$Version-"+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss'))
  Assert-OutputPath $taskBackup
  if(Test-Path -LiteralPath $taskBackup){throw 'Backup target exists'}
  Move-Item -LiteralPath $taskCurrent -Destination $taskBackup
@@ -49,12 +49,12 @@ if($Mode -eq 'Stage'){
  if(Test-Path -LiteralPath $taskLinkPath){Copy-Item -LiteralPath $taskLinkPath -Destination (Join-Path $taskRelease 'prior-desktop-shortcut.lnk')}
  $taskLink=$taskShell.CreateShortcut($taskLinkPath);$taskLink.TargetPath=Join-Path $taskCurrent 'BBGDDG.exe';$taskLink.WorkingDirectory=$taskCurrent;$taskLink.IconLocation=$taskLink.TargetPath+',0';$taskLink.Save()
  [pscustomobject]@{State='activated';PreviousApp=$taskBackup;Current=$taskCurrent}|ConvertTo-Json|Set-Content -LiteralPath (Join-Path $taskRelease 'activation-state.json')
- [pscustomobject]@{Activated='1.3.0';PreviousApp=$taskBackup;PersonalData='unchanged';Shortcut=$taskLink.TargetPath}|ConvertTo-Json -Compress
+ [pscustomobject]@{Activated=$Version;PreviousApp=$taskBackup;PersonalData='unchanged';Shortcut=$taskLink.TargetPath}|ConvertTo-Json -Compress
 }else{
  Assert-PersonalData
  $taskShell=New-Object -ComObject WScript.Shell;$taskLink=$taskShell.CreateShortcut((Join-Path ([Environment]::GetFolderPath('Desktop')) 'BBGDDG.lnk'))
  if($taskLink.TargetPath -ne (Join-Path $taskCurrent 'BBGDDG.exe')){throw 'Shortcut target mismatch'}
  $taskVersion=(Get-Item -LiteralPath (Join-Path $taskCurrent 'BBGDDG.exe')).VersionInfo.ProductVersion
- if($taskVersion -notlike '1.3.0*'){throw 'Current executable version mismatch'}
+ if($taskVersion -ne $Version){throw 'Current executable version mismatch'}
  [pscustomobject]@{CurrentVersion=$taskVersion;PersonalData='unchanged';Shortcut='verified'}|ConvertTo-Json -Compress
 }

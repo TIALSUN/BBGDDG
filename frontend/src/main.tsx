@@ -7,6 +7,7 @@ import './workspace.css'
 import './ai.css'
 import './styles/tokens.css'
 import './styles/workspace-shell.css'
+import './styles/reader-chrome.css'
 
 import ProjectsPage from './pages/LibraryPage'
 import ProjectView from './pages/ProjectWorkspace'

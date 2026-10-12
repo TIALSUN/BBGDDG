@@ -28,7 +28,7 @@ try{
  const dbPath=path.join(userData,'data/bbgddg.db');
  const before=new Database(dbPath,{readonly:true});const oldSchema=before.prepare('SELECT max(version) version FROM schema_migrations').get().version;before.close();
  app=await launch(executablePath);session=await ready(app);let {page,api,origin}=session;page.on('pageerror',e=>errors.push(e.message));
- assert.equal(await app.evaluate(({app})=>app.getVersion()),'1.3.0');
+ assert.equal(await app.evaluate(({app})=>app.getVersion()),JSON.parse(fs.readFileSync(path.join(repo,'package.json'),'utf8')).version);
  const saved=await(await api.get(`${origin}/api/projects/${project.id}/notes/${note.id}`)).json();assert.equal(saved.content,noteContent);
  assert.equal((await(await api.get(origin+annotationsUrl)).json())[0].note,'保留旧注释');
  if(oldSchema<11){
@@ -51,6 +51,6 @@ try{
  const noteInk=await(await api.get(`${origin}/api/projects/${project.id}/ink?kind=note&noteId=${note.id}`)).json();assert.equal(noteInk.blocks[0].strokes.length,1);
  await page.goto(`${origin}/projects/${project.id}/sources/${source.id}`);await expect(page.locator('[data-pdf-page="1"] [data-ink-stroke]')).toHaveAttribute('points',points);
  assert.deepEqual(errors,[]);
- fs.mkdirSync(path.join(repo,'release/validation'),{recursive:true});await page.screenshot({path:path.join(repo,'release/validation/desktop-1.3.0-reader.png')});
- console.log(JSON.stringify({executable:executablePath,version:'1.3.0',legacySchema:oldSchema,legacyNotesAndAnnotations:'passed',migrationBackup:oldSchema<11?'passed':'not-needed',noteInk:'passed',pdfInk:'passed',restart:'passed',pdfExport:'passed',editableBackupRestore:'passed',pageErrors:errors,userData}));
+ fs.mkdirSync(path.join(repo,'release/validation'),{recursive:true});await page.screenshot({path:path.join(repo,'release/validation/desktop-reader.png')});
+ console.log(JSON.stringify({executable:executablePath,version:JSON.parse(fs.readFileSync(path.join(repo,'package.json'),'utf8')).version,legacySchema:oldSchema,legacyNotesAndAnnotations:'passed',migrationBackup:oldSchema<11?'passed':'not-needed',noteInk:'passed',pdfInk:'passed',restart:'passed',pdfExport:'passed',editableBackupRestore:'passed',pageErrors:errors,userData}));
 }finally{await app?.close()}

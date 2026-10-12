@@ -21,6 +21,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.m
 type PageRect = { x1: number; y1: number; x2: number; y2: number }
 
 interface Props {
+  compactToolbar?:boolean
   inkContext?:PdfInkContext
   text?: string
   markdown?: boolean
@@ -115,11 +116,13 @@ const PDF_OPTIONS = {
 }
 
 export default function PdfViewer({
-  url, inkContext, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
+  url, inkContext, compactToolbar=false, initialPage = 1, pageRequest, isResizing, onPageChange, onTextSelected,
   annotations, onHighlightCreate, onNoteCreate, onAnchoredNote, onHighlightClick, onHighlightDelete,
 }: Props) {
   const requestedPage = normalizePage(pageRequest?.page??initialPage)
   const [inkSettings,setInkSettings]=useState(defaultInkSettings)
+  const [annotationToolsOpen,setAnnotationToolsOpen]=useState(false)
+  const showInkTools=!compactToolbar||annotationToolsOpen||inkSettings.mode!=='browse'
   const [numPages, setNumPages] = useState(0)
   const [currentPage, setCurrentPage] = useState(requestedPage)
   const [restored, setRestored] = useState(false)
@@ -325,15 +328,17 @@ export default function PdfViewer({
   }
 
   return (
-    <div ref={containerRef} style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
+    <div ref={containerRef} className={compactToolbar?'pdf-viewer is-compact':'pdf-viewer'} style={{ height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)', position: 'relative' }}>
       {/* Toolbar */}
       <div className="pdf-toolbar" style={{
         display: 'flex', alignItems: 'center', gap: 8, minHeight: 46, padding: '8px 16px',
         background: 'var(--panel)', borderBottom: '1px solid var(--border)',
         flexShrink: 0, flexWrap: 'wrap',
       }}>
+        {compactToolbar&&inkContext&&<div className="pdf-mode-tabs" role="group" aria-label="阅读模式"><button aria-pressed={!showInkTools} onClick={()=>{setAnnotationToolsOpen(false);setInkSettings(value=>({...value,mode:'browse'}))}}>阅读</button><button aria-pressed={showInkTools} onClick={()=>setAnnotationToolsOpen(true)}>批注</button></div>}
         <button onClick={zoomOut} title="缩小" style={btnStyle}>−</button>
         <select
+          aria-label="缩放比例"
           value={fitWidth ? 'fit' : String(scale)}
           onChange={e => e.target.value === 'fit' ? setFit() : setZoomLevel(parseFloat(e.target.value))}
           style={{ background: '#0f0f0f', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 8px', fontSize: 13, cursor: 'pointer' }}
@@ -344,19 +349,21 @@ export default function PdfViewer({
           ))}
         </select>
         <button onClick={zoomIn} title="放大" style={btnStyle}>+</button>
+        {compactToolbar&&<button aria-label="上一页" title="上一页" disabled={currentPage<=1} onClick={()=>jump(currentPage-1)} style={btnStyle}>‹</button>}
         <form className="page-jump" onSubmit={event=>{event.preventDefault();const page=Number(pageDraft);if(Number.isInteger(page)&&page>0)jump(page);setPageDraft('')}}>
-          <input aria-label="跳转页码" name="pdfPage" inputMode="numeric" type="number" min={1} max={numPages||1} placeholder={String(currentPage)} value={pageDraft} onChange={event=>setPageDraft(event.target.value)}/><button type="submit">跳转</button>
+          <input aria-label="跳转页码" name="pdfPage" inputMode="numeric" type="number" min={1} max={numPages||1} placeholder={String(currentPage)} value={pageDraft} onChange={event=>setPageDraft(event.target.value)}/>{compactToolbar&&<span className="pdf-page-total" aria-hidden="true">/ {numPages||'…'}</span>}<button type="submit" aria-label="跳转" title="跳转页码">{compactToolbar?'↵':'跳转'}</button>
         </form>
+        {compactToolbar&&<button aria-label="下一页" title="下一页" disabled={!numPages||currentPage>=numPages} onClick={()=>jump(currentPage+1)} style={btnStyle}>›</button>}
         {numPages > 0 && (
-          <span data-testid="page-progress" aria-live="polite" style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}>
+          <span className="pdf-page-progress" data-testid="page-progress" aria-live="polite" style={{ marginLeft: 8, fontSize: 12, color: 'var(--muted)' }}>
             第 {Math.min(currentPage, numPages)} 页 / 共 {numPages} 页
           </span>
         )}
+        {inkContext&&<div className="pdf-export-action"><ExportDialog compact={compactToolbar} projectId={inkContext.projectId} sourceId={inkContext.sourceId}/></div>}
       </div>
 
-      {inkContext&&<div className="pdf-export-action"><ExportDialog projectId={inkContext.projectId} sourceId={inkContext.sourceId}/></div>}
       {/* PDF scroll area */}
-      {inkContext&&<InkToolbar sourceTools settings={inkSettings} onChange={setInkSettings}/>}
+      {inkContext&&showInkTools&&<InkToolbar sourceTools settings={inkSettings} onChange={setInkSettings}/>}
       <div ref={scrollRef} data-testid="pdf-scroll-area" style={{ flex: 1, overflow: 'auto', padding: '16px 0' }}>
         <Document
           key={url}

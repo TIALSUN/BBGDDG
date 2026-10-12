@@ -1,0 +1,2 @@
+const paths={back:'m14 5-7 7 7 7M7 12h14',notes:'M5 4h14v16H5zM8 8h8M8 12h8M8 16h5',panel:'M3 4h18v16H3zM15 4v16',up:'m6 14 6-6 6 6',down:'m6 10 6 6 6-6',previous:'m14 6-6 6 6 6',next:'m10 6 6 6-6 6',download:'M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5'}
+export default function ReaderIcon({name}:{name:keyof typeof paths}){return <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d={paths[name]}/></svg>}

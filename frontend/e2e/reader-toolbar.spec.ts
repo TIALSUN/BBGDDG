@@ -100,4 +100,43 @@ test.describe('collapsible reader toolbar', () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await page.screenshot({ path: test.info().outputPath('reader-collapsed-narrow.png') });
   });
+
+  for (const width of [1440, 1024, 390]) {
+    test(`collapsed reader leaves a two-row header at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      const project = await createProjectViaApi(page, 'Compact reading chrome'), source = await upload(page, project.id);
+      await reader(page, project.id, source.id);
+      await page.getByRole('button', { name: '收起顶部', exact: true }).click();
+      await expect(page.getByRole('button', { name: '展开顶部', exact: true })).toBeEnabled();
+      const header = (await page.locator('.reader-topbar').boundingBox())!;
+      const paper = (await page.getByTestId('pdf-scroll-area').boundingBox())!;
+      expect(header.height).toBeLessThanOrEqual(52);
+      expect(paper.y).toBeLessThanOrEqual(112);
+      await expect(page.getByRole('toolbar', { name: '手写工具', exact: true })).toBeHidden();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.getByRole('button', { name: '批注', exact: true }).click();
+      const ink = page.getByRole('toolbar', { name: '手写工具', exact: true });
+      await expect(ink).toBeVisible();
+      expect((await ink.boundingBox())!.height).toBeLessThanOrEqual(60);
+      await ink.getByRole('button', { name: '钢笔', exact: true }).click();
+      await expect(ink.getByRole('button', { name: '钢笔', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await page.getByRole('button', { name: '阅读', exact: true }).click();
+      await expect(ink).toBeHidden();
+      expect((await page.getByTestId('pdf-scroll-area').boundingBox())!.y).toBeLessThanOrEqual(112);
+      await page.getByLabel('跳转页码', { exact: true }).fill('2');
+      await page.getByLabel('跳转页码', { exact: true }).press('Enter');
+      await expect(page.getByTestId('page-progress')).toHaveText('第 2 页 / 共 2 页');
+      await page.getByRole('button', { name: '上一页', exact: true }).click();
+      await expect(page.getByTestId('page-progress')).toHaveText('第 1 页 / 共 2 页');
+      await page.getByRole('button', { name: '下一页', exact: true }).click();
+      await expect(page.getByTestId('page-progress')).toHaveText('第 2 页 / 共 2 页');
+      await page.getByRole('button', { name: '阅读', exact: true }).click();
+      await page.screenshot({ path: test.info().outputPath(`compact-reader-${width}.png`) });
+      await page.getByRole('button', { name: '批注', exact: true }).click();
+      await expect(ink.getByRole('button', { name: '浏览', exact: true })).toHaveAttribute('aria-pressed', 'true');
+      await page.getByRole('button', { name: '导出标注 PDF', exact: true }).click();
+      await expect(page.getByRole('dialog', { name: '导出标注 PDF' })).toBeVisible();
+      expect((await page.getByRole('button', { name: '下载 PDF 副本', exact: true }).boundingBox())!.width).toBeGreaterThan(110);
+    });
+  }
 });

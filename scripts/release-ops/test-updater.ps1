@@ -15,7 +15,7 @@ try {
    [pscustomobject]@{Version='1.3.0';Source='verified-source';Manifest=@([pscustomobject]@{Relative='partial.txt';Bytes=1;SHA256='0000'})}|ConvertTo-Json -Depth 6|Set-Content -LiteralPath (Join-Path $taskRepo 'release/staged-desktop-manifest.json')
   }
   $taskCaught=$null
-  try{& (Join-Path $taskScripts 'update-desktop.ps1') Activate}catch{$taskCaught=$_.Exception.Message}
+  try{& (Join-Path $taskScripts 'update-desktop.ps1') Activate -Version '1.3.0'}catch{$taskCaught=$_.Exception.Message}
   if(-not $taskCaught -or $taskCaught -eq 'LIVE_SWAP_REACHED'){throw "FAIL $taskCase reached live swap without staged verification"}
   if($taskCaught -notmatch 'staged verification|Staged application differs'){throw "Unexpected failure: $taskCaught"}
   Write-Output "PASS $taskCase rejected before any move"

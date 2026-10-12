@@ -1,0 +1,65 @@
+/* A document strip and a reading strip; extra tools stay with the task. */
+.reader-topbar .reading-header {
+ display:grid;grid-template-columns:auto minmax(0,1fr) auto;
+ grid-template-areas:"back title actions" "ai ai ai";
+ height:auto;min-height:0;padding:8px 16px;gap:4px 12px;
+}
+.reading-header .reader-back {grid-area:back;display:inline-flex;align-items:center;gap:6px;order:0;min-height:44px}
+.reading-header .reading-title {grid-area:title;min-width:0;order:0}
+.reading-header .reader-header-actions {grid-area:actions;order:0;width:auto;margin:0;gap:4px}
+.reading-header>.ai-entry {grid-area:ai;min-width:0;padding:0;border:0}
+.reading-header .ai-entry>button {max-width:100%;overflow:hidden;white-space:nowrap}
+.reading-header .ai-entry-model {min-width:0;overflow:hidden;text-overflow:ellipsis}
+.reader-header-actions svg {flex-shrink:0}
+.reader-topbar.is-collapsed {display:block;min-height:0;border:0}
+.reader-topbar.is-collapsed .reading-header {
+ grid-template-columns:44px minmax(0,1fr) auto auto;
+ grid-template-areas:"back title ai actions";
+ height:49px;min-height:49px;padding:2px 8px;gap:4px;border-bottom:1px solid var(--border);
+}
+.reader-topbar.is-collapsed .reader-action-label {display:none}
+.reader-topbar.is-collapsed .reader-back {justify-content:center;padding:0}
+.reader-topbar.is-collapsed .reading-title h1 {margin:0;font-size:12px;line-height:1.4}
+.reader-topbar.is-collapsed .reader-header-actions button {
+ width:44px;min-width:44px;height:44px;min-height:44px;padding:0;border-color:transparent;background:transparent;
+}
+.reader-topbar.is-collapsed .reader-header-actions button:hover {background:#2b3341}
+.reader-topbar.is-collapsed .reader-header-actions button[aria-pressed=true] {color:#c6d1ff;background:#2b3341}
+.reader-topbar.is-collapsed .ai-entry {padding:0;max-width:230px}
+.reader-topbar.is-collapsed .ai-entry>button {height:44px;min-height:44px;padding:4px 8px;gap:3px;font-size:11px;background:transparent;border-color:transparent}
+.reading-header .ai-entry-popover {position:absolute;right:8px;top:100%;max-width:calc(100vw - 16px);z-index:70}
+.reading-header .ai-entry {position:relative}
+.pdf-viewer .pdf-toolbar {padding-right:16px!important}
+.pdf-viewer .pdf-export-action {position:static;align-self:auto;margin:0 0 0 auto;flex-shrink:0}
+.pdf-viewer.is-compact .pdf-toolbar {
+ height:53px;min-height:53px;flex-wrap:nowrap!important;gap:4px!important;padding:4px 8px!important;
+ overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;
+}
+.pdf-viewer.is-compact .pdf-toolbar>* {flex-shrink:0}
+.pdf-mode-tabs {display:flex;align-self:stretch;gap:2px;margin-right:8px;border-right:1px solid var(--border);padding-right:8px}
+.pdf-mode-tabs button {border:0;border-bottom:2px solid transparent;background:transparent;color:var(--muted);padding:0 8px;white-space:nowrap;font:inherit;font-size:12px}
+.pdf-mode-tabs button[aria-pressed=true] {color:#d9e1ff;border-bottom-color:var(--accent)}
+.pdf-viewer.is-compact .pdf-toolbar>button,.pdf-viewer.is-compact .pdf-mode-tabs>button,.pdf-viewer.is-compact .page-jump>button,.pdf-viewer.is-compact .pdf-export-action>button {height:44px;min-height:44px;min-width:44px;padding:4px 8px;border-radius:4px}
+.pdf-viewer.is-compact .pdf-toolbar select {height:36px;max-width:110px}
+.pdf-viewer.is-compact .page-jump {align-items:center;margin:0 4px;gap:4px}
+.pdf-viewer.is-compact .page-jump input {height:32px;width:44px;text-align:center;appearance:textfield}
+.pdf-viewer.is-compact .page-jump input::-webkit-inner-spin-button {appearance:none}
+.pdf-page-total {color:var(--muted);font-size:12px;white-space:nowrap}
+.pdf-viewer.is-compact .pdf-page-progress {position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.pdf-viewer.is-compact .pdf-export-action {padding-left:8px;border-left:1px solid var(--border)}
+.pdf-viewer.is-compact .pdf-export-action>button {width:44px}
+.pdf-viewer.is-compact>.ink-toolbar {flex-wrap:nowrap;overflow-x:auto;flex-shrink:0;max-height:57px;gap:4px;padding:6px 8px;border:0;border-bottom:1px solid var(--border);border-radius:0;scrollbar-width:thin}
+.pdf-viewer.is-compact>.ink-toolbar>* {flex-shrink:0;white-space:nowrap}
+.pdf-viewer.is-compact>.ink-toolbar button {padding:4px 10px;font-size:12px}
+@media(max-width:899px) {
+ .reader-topbar:not(.is-collapsed) .reading-header {grid-template-columns:44px minmax(0,1fr);grid-template-areas:"back title" "actions actions" "ai ai"}
+ .reader-topbar:not(.is-collapsed) .reader-header-actions {flex-wrap:wrap}
+ .reader-topbar:not(.is-collapsed) .reader-back .reader-action-label {display:none}
+}
+@media(max-width:600px) {
+ .reader-topbar.is-collapsed .ai-entry-model {display:none}
+ .reader-topbar.is-collapsed .ai-entry>button {width:44px;padding:0}
+ .reader-topbar.is-collapsed .reading-header {gap:2px;padding:2px 4px}
+ .reader-topbar.is-collapsed .reader-header-actions {gap:0}
+ .reading-header .ai-entry-popover {position:fixed;left:8px;right:8px;top:53px;max-width:none}
+}

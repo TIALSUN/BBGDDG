@@ -1,6 +1,7 @@
 import InkReview from '../ink/InkReview'
 import useReaderLayout from '../hooks/useReaderLayout'
 import ReaderTools from '../components/ReaderTools'
+import ReaderIcon from '../components/ReaderIcon'
 import {useEffect,useRef,useState} from 'react'
 import {Link,useParams,useNavigate,useLocation} from 'react-router-dom'
 import PdfViewer from '../components/PdfViewer'
@@ -73,28 +74,30 @@ export default function ReaderPage({documentSourceId,initialNoteId}:{documentSou
  function openReference(reference:ChatReference){if(reference.sourceId===sourceId){setPageRequest({page:reference.page,key:Date.now(),excerpt:reference.excerpt});setNotice('已跳转到引用页；匹配到的原文会临时标亮。')}else navigate('/projects/'+projectId+'/sources/'+reference.sourceId,{state:{citation:reference,returnContext:originContext()}})}
  function saveProgress(page:number){readingPage.current=page;if(progress.current)clearTimeout(progress.current);progress.current=setTimeout(()=>{sourcesApi.updateLastPageRead(projectId!,sourceId!,page).catch(()=>{})},500)}
  function openAnchor(anchor:NoteAnchor){if(anchor.sourceId!==sourceId){navigate(`/projects/${projectId}/sources/${anchor.sourceId}`,{state:{citation:{sourceId:anchor.sourceId,page:anchor.page,excerpt:anchor.text},returnContext:originContext()}});return}const changed=anchor.contentHash&&source?.content_hash&&anchor.contentHash!==source.content_hash;setPageRequest({page:anchor.page,key:Date.now(),excerpt:anchor.text,rects:changed?undefined:anchor.rects});setNotice(changed?'文件内容已改变，文字匹配位置需核实。':'已定位笔记对应的原文。');if(review)setFocused(false)}
- return <div className={`reading-workspace ${review?'is-review':''}`} style={{'--viewport-height':viewportHeight+'px'} as React.CSSProperties}>
+ return <div className={`reading-workspace ${review?'is-review':''} ${topCollapsed?'is-top-collapsed':''}`} style={{'--viewport-height':viewportHeight+'px'} as React.CSSProperties}>
   <div className={`reader-topbar ${topCollapsed?'is-collapsed':''}`}>
    <header className="reading-header">
-    <Link to={`/projects/${projectId}`} className="reader-back">← 返回项目</Link>
+    <Link to={`/projects/${projectId}`} className="reader-back" aria-label="返回项目" title="返回项目"><ReaderIcon name="back"/><span className="reader-action-label">返回项目</span></Link>
     <div className="reading-title">
      <h1 title={source?.title}>{source?.title||'正在加载文献…'}</h1>
      {!topCollapsed&&<span>{source?.pages||0} {source?.type==='text'?'段':'页'} <span className="status-dot"/>{source?.type==='text'?'本地文档':'本地 PDF'}</span>}
     </div>
-    <div className="reader-header-actions"><button className="secondary" onClick={()=>{setReview(v=>!v);setFocused(!review&&window.innerWidth<900);setPanel('notes')}}>{review?'返回阅读':'笔记复习'}</button>{review&&<button className="secondary" onClick={()=>setFocused(v=>!v)}>{focused?'显示原文':'收起原文'}</button>}
+    <AiControlPanel compact minimized/>
+    <div className="reader-header-actions"><button className="secondary" aria-label={review?'返回阅读':'笔记复习'} title={review?'返回阅读':'笔记复习'} onClick={()=>{setReview(v=>!v);setFocused(!review&&window.innerWidth<900);setPanel('notes')}}><ReaderIcon name="notes"/><span className="reader-action-label">{review?'返回阅读':'笔记复习'}</span></button>{review&&<button className="secondary" aria-label={focused?'显示原文':'收起原文'} title={focused?'显示原文':'收起原文'} onClick={()=>setFocused(v=>!v)}><ReaderIcon name="panel"/><span className="reader-action-label">{focused?'显示原文':'收起原文'}</span></button>}
      <button type="button" className="secondary reader-top-toggle" aria-expanded={!topCollapsed}
+      aria-label={topCollapsed?'展开顶部':'收起顶部'}
       disabled={!layoutReady} aria-disabled={savingLayout} onClick={()=>void toggleTop()}
       title={topCollapsed?'展开文献信息与 AI 用量':'将顶部缩成工具栏，扩大阅读区域'}>
-      <span aria-hidden="true">{topCollapsed?'⌄':'⌃'}</span>{topCollapsed?'展开顶部':'收起顶部'}
+      <ReaderIcon name={topCollapsed?'down':'up'}/><span className="reader-action-label">{topCollapsed?'展开顶部':'收起顶部'}</span>
      </button>
-     <button className={focused?'primary':'secondary'} aria-pressed={focused} onClick={()=>setFocused(value=>!value)}>{focused?'显示阅读面板':'收起面板'}</button>
+     <button className={focused?'primary':'secondary'} aria-label={focused?'显示阅读面板':'收起面板'} title={focused?'显示阅读面板':'收起面板'} aria-pressed={focused} onClick={()=>setFocused(value=>!value)}><ReaderIcon name="panel"/><span className="reader-action-label">{focused?'显示阅读面板':'收起面板'}</span></button>
+     {returnContext&&<button className="secondary" aria-label="返回引用位置" title="返回引用位置" onClick={()=>navigate(returnContext.route,{state:{restoreContext:returnContext}})}>↶<span className="reader-action-label">返回引用位置</span></button>}
     </div>
    </header>
-   <AiControlPanel compact minimized/>{returnContext&&<button className="secondary" onClick={()=>navigate(returnContext.route,{state:{restoreContext:returnContext}})}>返回引用位置</button>}
   </div>
   {(notice||!topCollapsed)&&<div className={`reading-notice ${topCollapsed?'is-floating':''}`} aria-live="polite">{notice||'选中文字以高亮、添加注释或向 AI 提问。'}{deletedAnnotation&&<button onClick={()=>void undoAnnotationDelete()}>撤销删除标注</button>}{notice&&<button aria-label="关闭提示" onClick={()=>setNotice('')}>×</button>}</div>}
   <main id="main-content" style={{'--panel-width':panelWidth+'px'} as React.CSSProperties} className={`reading-layout study-layout ${focused?'is-focused':''} ${review?'review-layout':''}`}>
-   <section className="paper-stage" aria-label="PDF 阅读区">{loading?<div className="empty-state">正在加载 PDF…</div>:source?<Viewer inkContext={source.type!=='text'&&source.content_hash?{projectId:projectId!,sourceId:sourceId!,contentHash:source.content_hash}:undefined} text={source.pdf_text||''} markdown={source.media_type!=='text/plain'} key={source.id} url={`/api/projects/${projectId}/sources/${sourceId}/file`} pages={source.pages} initialPage={source.last_page_read} pageRequest={pageRequest} annotations={annotations} onPageChange={saveProgress} onTextSelected={(text,anchors)=>{setQuote(text);setSelectionAnchor((anchors||[]).map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash})));setFocused(false);setPanel('chat')}} onHighlightCreate={data=>create(data)} onNoteCreate={data=>create(data,true)} onAnchoredNote={anchors=>{setDraftRequest({key:Date.now(),draft:{title:anchors[0].text.slice(0,40)||'原文笔记',content:'',tags:[],anchors:anchors.map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash}))}});setPanel('notes');setFocused(false)}} onHighlightClick={select} onHighlightDelete={remove}/>:<p className="error-message">无法打开 PDF，请返回项目重试。</p>}</section>
+   <section className="paper-stage" aria-label="PDF 阅读区">{loading?<div className="empty-state">正在加载 PDF…</div>:source?<Viewer compactToolbar={topCollapsed} inkContext={source.type!=='text'&&source.content_hash?{projectId:projectId!,sourceId:sourceId!,contentHash:source.content_hash}:undefined} text={source.pdf_text||''} markdown={source.media_type!=='text/plain'} key={source.id} url={`/api/projects/${projectId}/sources/${sourceId}/file`} pages={source.pages} initialPage={source.last_page_read} pageRequest={pageRequest} annotations={annotations} onPageChange={saveProgress} onTextSelected={(text,anchors)=>{setQuote(text);setSelectionAnchor((anchors||[]).map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash})));setFocused(false);setPanel('chat')}} onHighlightCreate={data=>create(data)} onNoteCreate={data=>create(data,true)} onAnchoredNote={anchors=>{setDraftRequest({key:Date.now(),draft:{title:anchors[0].text.slice(0,40)||'原文笔记',content:'',tags:[],anchors:anchors.map(anchor=>({...anchor,unit:source.type==='text'?'paragraph' as const:'page' as const,sourceId:sourceId!,contentHash:source.content_hash}))}});setPanel('notes');setFocused(false)}} onHighlightClick={select} onHighlightDelete={remove}/>:<p className="error-message">无法打开 PDF，请返回项目重试。</p>}</section>
    <div className="reader-divider" role="separator" aria-label="调整阅读面板宽度" aria-orientation="vertical" aria-valuemin={320} aria-valuemax={720} aria-valuenow={Math.round(panelWidth)} tabIndex={0} onKeyDown={e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();setPanelWidth(Math.max(320,Math.min(720,panelWidth+(e.key==='ArrowLeft'?20:-20))))}}} onPointerDown={e=>{e.currentTarget.setPointerCapture(e.pointerId)}} onPointerMove={e=>{if(e.currentTarget.hasPointerCapture(e.pointerId))setPanelWidth(Math.max(320,Math.min(720,window.innerWidth-e.clientX)))}}/>
    <aside ref={panelRef} onKeyDown={event=>{
      if(window.innerWidth>=900||review)return

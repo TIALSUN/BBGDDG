@@ -2,11 +2,11 @@
 
 中文深色 PDF 阅读与研究工作台。把文献、高亮、注释、Markdown 笔记和 AI 对话放在同一个本地工作区。
 
-当前版本：**1.3.0**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
+当前版本：**1.3.1**。本项目基于 [PDFPal](https://github.com/andrepaim/pdfpal) 独立发展，保留上游作者与提交历史，不代表 PDFPal 官方版本。来源与许可见 [NOTICE.md](NOTICE.md)。
 
 ## 1.3 工作区与手写标注
 
-[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [桌面版验证记录](docs/VALIDATION-1.3.0.md)
+[下载 Windows 最新发行版](https://github.com/TIALSUN/BBGDDG/releases/latest) · [桌面版验证记录](docs/VALIDATION-1.3.1.md)
 
 - 统一文献、笔记、标注和 AI 工作区，保留搜索与阅读上下文。
 - PDF 和笔记支持钢笔、荧光笔、划线、整笔擦除、套索与撤销重做；鼠标也可操作。
