@@ -30,6 +30,7 @@ try{
  await expect(page.getByTestId('page-progress')).toHaveText('第 2 页 / 共 2 页');
  const version=await app.evaluate(({app})=>app.getVersion());assert.equal(version,JSON.parse(fs.readFileSync(path.join(repo,'package.json'),'utf8')).version);
  await page.reload();await expect(page.getByRole('button',{name:'展开顶部',exact:true})).toBeEnabled();
+ await expect(page.locator('[data-pdf-page="1"]')).toHaveAttribute('data-pdf-ready','true');
  await expect(page.getByRole('toolbar',{name:'手写工具',exact:true})).toBeHidden();
  await page.getByRole('button',{name:'导出标注 PDF',exact:true}).click();
  const dialog=page.getByRole('dialog',{name:'导出标注 PDF'});await expect(dialog).toBeVisible();
