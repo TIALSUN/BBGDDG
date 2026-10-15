@@ -70,6 +70,12 @@ body {
 .prose th, .prose td { border: 1px solid #3a3a3a; padding: 6px 12px; text-align: left; }
 .prose th { background: #2a2a2a; font-weight: 600; color: #e5e7eb; }
 .prose tr:nth-child(even) td { background: #1f1f1f; }
+/* KaTeX renders display math as a single nowrap line, so a long derivation is
+   wider than the answer panel and used to run past the message and get clipped
+   by the panel, with no way to reach the rest. Let the formula scroll inside
+   its own line instead, and keep it centred while it still fits. */
+.prose .katex-display { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.prose .katex-display > .katex { width: max-content; min-width: 100%; margin: 0 auto; }
 
 .spinner {
   width: 18px; height: 18px;

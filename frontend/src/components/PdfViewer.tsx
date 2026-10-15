@@ -1,5 +1,5 @@
 import ExportDialog from './ExportDialog'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useLayoutEffect, useCallback } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -137,7 +137,12 @@ export default function PdfViewer({
   const [scale, setScale] = useState(1.0)
   const [fitWidth, setFitWidth] = useState(true)
   const [containerWidth, setContainerWidth] = useState(800)
-  const [bubble, setBubble] = useState<{ x: number; y: number; text: string; coords: ReturnType<typeof getSelectionPageRects>;anchors:{page:number;text:string;rects:PageRect[]}[] } | null>(null)
+  // `x`/`y` are the fallback anchor (pointer position) while `selection` is the
+  // on-screen box of the selected text, which is what the card is positioned
+  // against so it never covers the words the user just selected.
+  const [bubble, setBubble] = useState<{ x: number; y: number; selection?: {left:number;top:number;bottom:number;width:number}; text: string; coords: ReturnType<typeof getSelectionPageRects>;anchors:{page:number;text:string;rects:PageRect[]}[] } | null>(null)
+  const bubbleRef = useRef<HTMLDivElement|null>(null)
+  const [bubblePos, setBubblePos] = useState<{left:number;top:number}|null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const currentPageRef = useRef(requestedPage)
@@ -185,36 +190,121 @@ export default function PdfViewer({
     }
   }, [isResizing])
 
-  // Text selection bubble
+  // Text selection bubble.
+  //
+  // The card used to be raised on every `selectionchange`, i.e. dozens of times
+  // while the user was still dragging the selection out, so it flickered along
+  // with the drag and landed on the words being selected. Now a gesture that is
+  // still in progress stays silent and the card only appears once the selection
+  // has settled: on pointer/mouse release for a drag, or after a short quiet
+  // period for the paths that never release a pointer inside the page (the
+  // iPad selection handles, keyboard selection, and programmatic selection by
+  // the stylus text-selection mode).
   useEffect(() => {
-    const handleMouseUp = (e: MouseEvent) => {
-      setTimeout(() => {
-        const selection = window.getSelection()
-        if (!selection || selection.isCollapsed) return
-        const text = selection.toString().trim()
-        if (!text) return
-        const container = containerRef.current
-        if (!container) return
-        const anchor = selection.anchorNode
-        if (!anchor || !container.contains(anchor)) return
-        const rect = container.getBoundingClientRect()
-        const coords = getSelectionPageRects(selection)
-        setBubble({ x: e.clientX - rect.left, y: e.clientY - rect.top, text, coords,anchors:getSelectionAnchors(selection,container) })
-      }, 80)
+    const SETTLE_AFTER_POINTER_MS = 60
+    const SETTLE_QUIET_MS = 220
+    let timer: number | undefined
+    let pointerDown = false
+    const cancel = () => { if (timer !== undefined) { clearTimeout(timer); timer = undefined } }
+    const measure = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) return
+      const text = selection.toString().trim()
+      if (!text) return
+      const container = containerRef.current
+      if (!container) return
+      const anchor = selection.anchorNode
+      if (!anchor || !container.contains(anchor)) return
+      const rect = container.getBoundingClientRect()
+      const range = selection.getRangeAt(0)
+      const box = range.getBoundingClientRect()
+      const coords = getSelectionPageRects(selection)
+      setBubble({
+        x: box.left - rect.left,
+        y: box.bottom - rect.top,
+        selection: { left: box.left - rect.left, top: box.top - rect.top, bottom: box.bottom - rect.top, width: box.width },
+        text, coords, anchors: getSelectionAnchors(selection, container),
+      })
+    }
+    const settle = (delay: number) => { cancel(); timer = window.setTimeout(measure, delay) }
+    const inBubble = (target: EventTarget | null) => !!(target as HTMLElement | null)?.closest?.('[data-ask-bubble]')
+    const handlePointerDown = (e: PointerEvent) => {
+      if (inBubble(e.target)) return
+      pointerDown = true
+      cancel()
+      setBubble(null)
+    }
+    const handlePointerUp = () => {
+      if (!pointerDown) return
+      pointerDown = false
+      settle(SETTLE_AFTER_POINTER_MS)
+    }
+    const handlePointerCancel = () => { pointerDown = false }
+    const handleMouseUp = () => {
+      // A mouse-up always ends a gesture, even if no pointer-up reached us.
+      pointerDown = false
+      settle(SETTLE_AFTER_POINTER_MS)
     }
     const handleMouseDown = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('[data-ask-bubble]')) setBubble(null)
+      if (!inBubble(e.target)) { cancel(); setBubble(null) }
     }
-    const handleSelectionChange=()=>{const selection=window.getSelection();if(!selection||selection.isCollapsed)return;const range=selection.getRangeAt(0),box=range.getBoundingClientRect();handleMouseUp({clientX:box.left,clientY:box.bottom} as MouseEvent)}
-    document.addEventListener('selectionchange',handleSelectionChange)
+    const handleSelectionChange = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.isCollapsed || selection.rangeCount === 0) { cancel(); setBubble(null); return }
+      // Still dragging: the range keeps changing, so wait for it to stop.
+      if (pointerDown) { cancel(); return }
+      settle(SETTLE_QUIET_MS)
+    }
+    document.addEventListener('selectionchange', handleSelectionChange)
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('pointerup', handlePointerUp)
+    document.addEventListener('pointercancel', handlePointerCancel)
     document.addEventListener('mouseup', handleMouseUp)
     document.addEventListener('mousedown', handleMouseDown)
     return () => {
-      document.removeEventListener('selectionchange',handleSelectionChange)
+      cancel()
+      document.removeEventListener('selectionchange', handleSelectionChange)
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('pointerup', handlePointerUp)
+      document.removeEventListener('pointercancel', handlePointerCancel)
       document.removeEventListener('mouseup', handleMouseUp)
       document.removeEventListener('mousedown', handleMouseDown)
     }
   }, [])
+
+  // Keep the card clear of the selected text: prefer the space under the
+  // selection, flip above it when the reader runs out of room, and follow the
+  // selection horizontally instead of the pointer. The measurement happens in a
+  // layout effect so the card never paints at a wrong spot first.
+  useLayoutEffect(() => {
+    if (!bubble) { setBubblePos(null); return }
+    const card = bubbleRef.current
+    const container = containerRef.current
+    if (!card || !container) return
+    const bounds = container.getBoundingClientRect()
+    const gap = 10
+    const edge = 8
+    const width = card.offsetWidth
+    const height = card.offsetHeight
+    const anchor = bubble.selection
+    const center = anchor ? anchor.left + anchor.width / 2 : bubble.x
+    const left = Math.max(edge, Math.min(center - width / 2, bounds.width - width - edge))
+    const below = (anchor ? anchor.bottom : bubble.y) + gap
+    const above = (anchor ? anchor.top : bubble.y) - height - gap
+    const lowest = bounds.height - edge - height
+    const top = below <= lowest ? below : above >= edge ? above : Math.max(edge, lowest)
+    setBubblePos(current => current && Math.abs(current.left - left) < 0.5 && Math.abs(current.top - top) < 0.5 ? current : { left, top })
+  }, [bubble])
+
+  // A stale card would hang over unrelated text once the reader scrolls the
+  // page, so scrolling dismisses it (same as the browser's own selection menu).
+  useEffect(() => {
+    const scroll = scrollRef.current
+    if (!scroll) return
+    const dismiss = () => setBubble(null)
+    scroll.addEventListener('scroll', dismiss, { passive: true })
+    return () => scroll.removeEventListener('scroll', dismiss)
+  }, [url])
 
   const handleAsk = () => {
     if (!bubble) return
@@ -399,12 +489,14 @@ export default function PdfViewer({
       {/* Selection bubble */}
       {bubble && (
         <div
+          ref={bubbleRef}
           data-ask-bubble="1"
           style={{
             position: 'absolute',
-            left: Math.max(4,Math.min(bubble.x, (containerRef.current?.clientWidth ?? 400) - 360)),
-            top: Math.max(bubble.y - 48, 8),
-            display: 'flex', gap: 6, zIndex: 9999, userSelect: 'none', flexWrap:'wrap', maxWidth:'calc(100% - 8px)', padding:8, background:'#20232b',border:'1px solid var(--border)',borderRadius:10,
+            left: bubblePos?.left ?? 0,
+            top: bubblePos?.top ?? 0,
+            visibility: bubblePos ? 'visible' : 'hidden',
+            display: 'flex', gap: 6, zIndex: 9999, userSelect: 'none', flexWrap:'wrap', maxWidth:'calc(100% - 16px)', padding:8, background:'#20232b',border:'1px solid var(--border)',borderRadius:10,
           }}
         >
           {bubble.coords && (
