@@ -150,7 +150,7 @@ export async function buildServer(config: BbgddgConfig, options: { accessToken?:
     finally{reply.raw.off('close',disconnected)}
     if(controller.signal.aborted)return
     reply.raw.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' })
-    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, references:result.references,contextScope:result.contextScope,memoryWarning:result.memoryWarning,usage: result.usage })}\n\n`)
+    reply.raw.write(`data: ${JSON.stringify({ text: result.answer, sources: result.sources, references:result.references,contextScope:result.contextScope,readingScope:result.readingScope,truncated:result.truncated,memoryWarning:result.memoryWarning,usage: result.usage })}\n\n`)
     reply.raw.end('data: [DONE]\n\n')
   })
   for(const route of ['/api/projects/:projectId/memory','/api/projects/:projectId/sources/:sourceId/memory']){

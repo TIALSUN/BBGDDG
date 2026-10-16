@@ -24,3 +24,20 @@ test('retrieval indexes and filters passages by project/source', () => {
     assert.equal(results[0]?.page_number, 3)
   } finally { cleanup(config, db) }
 })
+
+test('Chinese queries match via character bigrams even though FTS5 does not tokenize CJK', () => {
+  const config = testConfig(), db = testDb(config)
+  try {
+    const project = createProject(db)
+    const source = createSource(db, project, '[Page 5]\n本文讨论机器学习的基本原理与注意力机制。')
+    const retrieval = new RetrievalService(db)
+    retrieval.index(source, '[Page 5]\n本文讨论机器学习的基本原理与注意力机制。')
+    const phrase = retrieval.search(project, '机器学习')
+    assert.equal(phrase.length, 1)
+    assert.equal(phrase[0]?.source_id, source)
+    assert.equal(phrase[0]?.page_number, 5)
+    const sentence = retrieval.search(project, '这篇文章的机器学习原理是什么')
+    assert.equal(sentence.length, 1)
+    assert.equal(sentence[0]?.source_id, source)
+  } finally { cleanup(config, db) }
+})

@@ -5,8 +5,9 @@ import Database from 'better-sqlite3'
 import type { Database as DatabaseType } from 'better-sqlite3'
 import type { BbgddgConfig } from './config.js'
 import { ensureDataDirectories } from './config.js'
+import { cjkIndexText } from './cjk.js'
 
-const CURRENT_SCHEMA = 11
+const CURRENT_SCHEMA = 12
 
 function columnExists(db: DatabaseType, table: string, column: string): boolean {
   return (db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).some(row => row.name === column)
@@ -95,10 +96,15 @@ function migrate(db: DatabaseType): void {
   add('byte_size', 'INTEGER')
   add('content_hash', 'TEXT')
 
+  // The bigram column must exist before the CJK FTS table below references it.
+  if (tableExists(db, 'source_chunks') && !columnExists(db, 'source_chunks', 'content_cn')) {
+    db.exec('ALTER TABLE source_chunks ADD COLUMN content_cn TEXT')
+  }
+
   db.exec(`
     CREATE TABLE IF NOT EXISTS source_chunks (
       id INTEGER PRIMARY KEY AUTOINCREMENT, source_id TEXT NOT NULL, page_number INTEGER NOT NULL,
-      chunk_index INTEGER NOT NULL, content TEXT NOT NULL,
+      chunk_index INTEGER NOT NULL, content TEXT NOT NULL, content_cn TEXT,
       FOREIGN KEY(source_id) REFERENCES sources(id) ON DELETE CASCADE,
       UNIQUE(source_id, page_number, chunk_index)
     );
@@ -112,6 +118,17 @@ function migrate(db: DatabaseType): void {
     CREATE TRIGGER IF NOT EXISTS source_chunks_au AFTER UPDATE ON source_chunks BEGIN
       INSERT INTO source_chunks_fts(source_chunks_fts, rowid, content) VALUES('delete', old.id, old.content);
       INSERT INTO source_chunks_fts(rowid, content) VALUES (new.id, new.content);
+    END;
+    CREATE VIRTUAL TABLE IF NOT EXISTS source_chunks_fts_cn USING fts5(content_cn, content='source_chunks', content_rowid='id');
+    CREATE TRIGGER IF NOT EXISTS source_chunks_ai_cn AFTER INSERT ON source_chunks BEGIN
+      INSERT INTO source_chunks_fts_cn(rowid, content_cn) VALUES (new.id, new.content_cn);
+    END;
+    CREATE TRIGGER IF NOT EXISTS source_chunks_ad_cn AFTER DELETE ON source_chunks BEGIN
+      INSERT INTO source_chunks_fts_cn(source_chunks_fts_cn, rowid, content_cn) VALUES('delete', old.id, old.content_cn);
+    END;
+    CREATE TRIGGER IF NOT EXISTS source_chunks_au_cn AFTER UPDATE ON source_chunks BEGIN
+      INSERT INTO source_chunks_fts_cn(source_chunks_fts_cn, rowid, content_cn) VALUES('delete', old.id, old.content_cn);
+      INSERT INTO source_chunks_fts_cn(rowid, content_cn) VALUES (new.id, new.content_cn);
     END;
     CREATE INDEX IF NOT EXISTS idx_source_chunks_source ON source_chunks(source_id, page_number);
     INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, datetime('now'));
@@ -198,6 +215,18 @@ function migrate(db: DatabaseType): void {
       db.prepare("INSERT INTO schema_migrations(version,applied_at) VALUES(11,datetime('now'))").run()
     })()
   }
+  if (!db.prepare('SELECT 1 FROM schema_migrations WHERE version=12').get()) {
+    db.transaction(()=>{
+      if (!columnExists(db,'source_chunks','content_cn')) db.exec('ALTER TABLE source_chunks ADD COLUMN content_cn TEXT')
+      // Backfill the bigram form for rows indexed before this migration, then
+      // rebuild the external-content CJK index. The original text is untouched.
+      const rows = db.prepare("SELECT id, content FROM source_chunks WHERE content_cn IS NULL OR content_cn = ''").all() as Array<{ id: number; content: string }>
+      const update = db.prepare('UPDATE source_chunks SET content_cn=? WHERE id=?')
+      for (const row of rows) update.run(cjkIndexText(row.content), row.id)
+      db.exec("INSERT INTO source_chunks_fts_cn(source_chunks_fts_cn) VALUES ('rebuild')")
+      db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (12, datetime('now'))").run()
+    })()
+  }
 
 }
 
@@ -210,7 +239,7 @@ function migrateLegacySessions(db: DatabaseType): void {
     VALUES (?,?,?,?,?,?,?,?,?)`)
   const insertChat = db.prepare('INSERT INTO chat_sessions(id,project_id,source_id,title,created_at,accessed_at) VALUES (?,?,?,?,?,?)')
   const insertMessage = db.prepare('INSERT INTO chat_messages(session_id,role,content,sources_used,created_at) VALUES (?,?,?,?,?)')
-  const insertChunk = db.prepare('INSERT INTO source_chunks(source_id,page_number,chunk_index,content) VALUES (?,?,?,?)')
+  const insertChunk = db.prepare('INSERT INTO source_chunks(source_id,page_number,chunk_index,content,content_cn) VALUES (?,?,?,?,?)')
   const transaction = db.transaction(() => {
     for (const session of sessions) {
       const projectId = String(session.id)
@@ -245,7 +274,8 @@ function indexLegacyText(insert: { run: (...args: any[]) => unknown }, sourceId:
     const clean = part.text.replace(/\s+/g, ' ').trim()
     for (let offset = 0, chunk = 0; offset < clean.length; chunk++) {
       const end = Math.min(clean.length, offset + 1500)
-      insert.run(sourceId, part.page, chunk, clean.slice(offset, end))
+      const content = clean.slice(offset, end)
+      insert.run(sourceId, part.page, chunk, content, cjkIndexText(content))
       if (end === clean.length) break
       offset = Math.max(offset + 1, end - 150)
     }

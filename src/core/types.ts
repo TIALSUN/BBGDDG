@@ -51,10 +51,19 @@ export interface Passage {
 
 export interface ChatReference { locationUnit?:'page'|'paragraph'; id: number; sourceId: string; title: string; page: number; excerpt: string; canJump: boolean }
 export type ContextScope = 'selection' | 'document' | 'project'
+export interface ReadingScope {
+  mode: 'full' | 'passages' | 'selection'
+  sources: Array<{ id: string; title: string; pages: number[]; fullTextIncluded: boolean }>
+  truncated: boolean
+  memoryAvailable: boolean
+  network: boolean
+}
 export interface AskResult {
   references?: ChatReference[]
   contextScope?: ContextScope
+  readingScope?: ReadingScope
   memoryWarning?: string
+  truncated?: boolean
   usage?: import('./ai-settings.js').AiUsage
   answer: string
   project: Pick<Project, 'id' | 'title'>

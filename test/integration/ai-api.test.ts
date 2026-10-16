@@ -40,8 +40,10 @@ test('API settings, PDF context and usage persist without exposing keys', async 
     const ask = await app.inject({method:'POST',url:'/api/chat',payload:{project_id:project.id,source_id:source.id,message:'Test page 的内容是什么？'}})
     assert.equal(ask.statusCode,200);assert.match(ask.body,/本地文献的中文回答/);assert.match(ask.body,/"totalTokens":120/)
     const generation = calls.find(call=>call.url.endsWith('/chat/completions'))!
-    assert.equal(generation.headers.authorization,`Bearer ${key}`);assert.match(generation.body.messages[0].content,/Test page/)
-    assert.ok(!generation.body.messages[0].content.includes('Local documents available in your current working directory'))
+    assert.equal(generation.headers.authorization,`Bearer ${key}`)
+    assert.equal(generation.body.messages[0].role,'system');assert.match(generation.body.messages[0].content,/research assistant/)
+    assert.match(generation.body.messages[1].content,/Test page/)
+    assert.ok(!generation.body.messages[1].content.includes('Local documents available in your current working directory'))
     let history = (await app.inject({method:'GET',url:`/api/projects/${project.id}/sources/${source.id}/chat`})).json()
     assert.equal(history.messages[1].usage.model,'test-model-returned');assert.equal(history.messages[1].usage.totalTokens,120)
     await app.close();app = await buildServer(config)
@@ -52,7 +54,7 @@ test('API settings, PDF context and usage persist without exposing keys', async 
     settings.saveApi('api-claude',{baseUrl:base,model:'claude-test',apiKey:key})
     const claude = await new ApiAgent(settings).invoke('api-claude','验证中文')
     assert.equal(claude.usage.inputTokens,33);assert.equal(claude.usage.totalTokens,38)
-    const claudeCall = calls.at(-1)!;assert.equal(claudeCall.url,'/v1/messages');assert.equal(claudeCall.headers['x-api-key'],key);assert.equal(claudeCall.body.max_tokens,4096)
+    const claudeCall = calls.at(-1)!;assert.equal(claudeCall.url,'/v1/messages');assert.equal(claudeCall.headers['x-api-key'],key);assert.equal(claudeCall.body.max_tokens,4096);assert.equal(claudeCall.body.system.length>0,true)
     errorCode=401;await assert.rejects(new ApiAgent(settings).invoke('api-compatible','fail'),(error:any)=>error.message.includes('401')&&!error.message.includes(key));errorCode=0
     redirect=true;await assert.rejects(new ApiAgent(settings).test('api-compatible'),/连接失败/);assert.notEqual(calls.at(-1)!.url,'/elsewhere');redirect=false
     assert.equal((await app.inject({method:'PUT',url:'/api/ai/api/api-compatible',headers:{origin:'https://untrusted.example'},payload:{baseUrl:base,model:'x',apiKey:key}})).statusCode,403)
@@ -61,5 +63,29 @@ test('API settings, PDF context and usage persist without exposing keys', async 
     assert.equal(settings.secret(settings.profile('api-compatible')),'');assert.equal(new AgentService(config).list().find(agent=>agent.id==='api-compatible')!.available,false)
     assert.equal((await app.inject({method:'PUT',url:'/api/ai/default',payload:{provider:'api-compatible'}})).statusCode,400)
     for(const url of ['http://example.com','https://user:secret@example.com','https://example.com?key=secret'])assert.throws(()=>validateBaseUrl(url))
+  } finally { await app.close();await new Promise<void>(resolve=>mock.close(()=>resolve()));fs.rmSync(config.dataDir,{recursive:true,force:true}) }
+})
+
+test('length-limited API answers are flagged instead of saved as complete', async () => {
+  const config = testConfig(), key = 'synthetic-test-key-not-a-real-credential'
+  const mock = http.createServer(async (req,res) => {
+    res.setHeader('Content-Type','application/json')
+    if (req.url!.endsWith('/models')) { res.end(JSON.stringify({ data: [{ id: 'test-model' }] })); return }
+    res.end(JSON.stringify({ model:'test-model', choices:[{ message:{ content:'被截断的回答' }, finish_reason:'length' }], usage:{ prompt_tokens:10, completion_tokens:5, total_tokens:15 } }))
+  })
+  mock.listen(0,'127.0.0.1');await once(mock,'listening')
+  const base = `http://127.0.0.1:${(mock.address() as any).port}/v1`
+  let app = await buildServer(config)
+  const settings = new AiSettingsStore(config)
+  try {
+    settings.saveApi('api-compatible',{baseUrl:base,model:'test-model',apiKey:key})
+    const project = (await app.inject({method:'POST',url:'/api/projects',payload:{title:'截断验证'}})).json()
+    const source = (await app.inject({method:'POST',url:`/api/projects/${project.id}/sources`,payload:{url:path.resolve('test/fixtures/sample.pdf')}})).json()
+    const ask = await app.inject({method:'POST',url:'/api/chat',payload:{project_id:project.id,source_id:source.id,message:'总结',agent:'api-compatible'}})
+    assert.equal(ask.statusCode,200)
+    assert.match(ask.body,/长度限制被截断/)
+    assert.match(ask.body,/"truncated":true/)
+    const history = (await app.inject({method:'GET',url:`/api/projects/${project.id}/sources/${source.id}/chat`})).json()
+    assert.match(history.messages[1].content,/长度限制被截断/)
   } finally { await app.close();await new Promise<void>(resolve=>mock.close(()=>resolve()));fs.rmSync(config.dataDir,{recursive:true,force:true}) }
 })

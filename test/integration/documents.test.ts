@@ -29,7 +29,7 @@ test('text documents reach AI requests with paragraph citations instead of fake 
     const project=new ProjectService(db).create('AI Text'),source=await new SourceService(db,config).addFile(project.id,Buffer.from('Alpha\n\nResearch Beta'),'study.txt')
     new AiSettingsStore(config).saveApi('api-compatible',{baseUrl:'http://localhost:1234/v1',model:'synthetic',apiKey:'synthetic'})
     let prompt=''
-    globalThis.fetch=async(_url,init)=>{prompt=JSON.parse(String(init?.body)).messages[0].content;return new Response(JSON.stringify({choices:[{message:{content:'Synthetic answer [1]'}}]}),{headers:{'content-type':'application/json'}})}
+    globalThis.fetch=async(_url,init)=>{prompt=JSON.parse(String(init?.body)).messages[1].content;return new Response(JSON.stringify({choices:[{message:{content:'Synthetic answer [1]'}}]}),{headers:{'content-type':'application/json'}})}
     const answer=await new ChatService(db,config).ask(project.id,'Beta',{agent:'api-compatible',sourceSelectors:[source.id],contextScope:'document'})
     assert.match(prompt,/Research Beta/);assert.match(prompt,/paragraph 2/)
     assert.equal(answer.references![0].locationUnit,'paragraph');assert.equal(answer.references![0].page,2);assert.equal(answer.references![0].canJump,true)
